@@ -9,7 +9,9 @@ const store = require('./store');
 const auth = require('./auth');
 const ai = require('./ai');
 const progress = require('./progress');
-const { attach } = require('./games');
+const { attach, liveStats } = require('./games');
+const admin = require('./admin');
+const classes = require('./classes');
 
 const isDesktop = () => process.env.QF_DESKTOP === '1';
 
@@ -35,6 +37,7 @@ async function start({
   await store.init(dataDir);
 
   const app = express();
+  app.set('trust proxy', 1); // Render sits in front of the app, so use the real visitor IP for report limits
   app.use(express.json({ limit: '12mb' }));
   app.use(express.static(path.join(__dirname, '..', 'public')));
   app.use('/assets', express.static(path.join(__dirname, '..', 'assets')));
@@ -98,6 +101,29 @@ async function start({
   }));
   app.get('/api/homework/:id', auth.requireUser, route(async (req, res) => res.json(await homework.report(req.user, req.params.id))));
   app.delete('/api/homework/:id', auth.requireUser, route(async (req, res) => { await homework.remove(req.user, req.params.id); res.json({ ok: true }); }));
+
+  // reports & moderation
+  app.get('/api/report-reasons', (req, res) => res.json(admin.REASONS));
+  app.post('/api/sets/:id/report', route(async (req, res) => res.json(await admin.report(store, req.params.id, req.body, req.user, req.ip))));
+  app.get('/api/admin/stats', auth.requireAdmin, route(async (req, res) => res.json(await admin.stats(liveStats))));
+  app.get('/api/admin/reports', auth.requireAdmin, route(async (req, res) => res.json(await admin.listReports())));
+  app.get('/api/admin/sets/:id', auth.requireAdmin, route(async (req, res) => {
+    const set = await store.get(req.params.id);
+    if (!set) return res.status(404).json({ error: 'Set not found.' });
+    res.json(set);
+  }));
+  app.post('/api/admin/sets/:id/:action', auth.requireAdmin, route(async (req, res) => res.json(await admin.resolve(store, req.params.id, req.params.action))));
+  app.get('/api/admin/users', auth.requireAdmin, route(async (req, res) => res.json(await admin.findUsers(store, req.query.q))));
+  app.post('/api/admin/users/:id/ban', auth.requireAdmin, route(async (req, res) => res.json(await admin.setBan(store, req.params.id, !!req.body.banned, req.user))));
+
+  // classes
+  app.get('/api/classes', auth.requireUser, route(async (req, res) => res.json(await classes.overview(req.user))));
+  app.post('/api/classes', auth.requireUser, route(async (req, res) => res.json(await classes.create(req.user, req.body.name))));
+  app.post('/api/classes/join', auth.requireUser, route(async (req, res) => res.json(await classes.join(req.user, req.body.code))));
+  app.get('/api/classes/:id', auth.requireUser, route(async (req, res) => res.json(await classes.detail(req.user, req.params.id))));
+  app.delete('/api/classes/:id', auth.requireUser, route(async (req, res) => res.json(await classes.remove(req.user, req.params.id))));
+  app.post('/api/classes/:id/leave', auth.requireUser, route(async (req, res) => res.json(await classes.leave(req.user, req.params.id))));
+  app.delete('/api/classes/:id/students/:userId', auth.requireUser, route(async (req, res) => res.json(await classes.removeStudent(req.user, req.params.id, req.params.userId))));
 
   // history
   app.get('/api/history', auth.requireUser, route(async (req, res) => {

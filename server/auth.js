@@ -5,9 +5,16 @@ const dbm = require('./db');
 const db = () => dbm.db;
 const hash = (pw, salt) => crypto.scryptSync(pw, salt, 64).toString('hex');
 
+function isAdmin(u) {
+  if (!u) return false;
+  const admins = String(process.env.ADMIN_USERS || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+  return admins.includes(String(u.username).toLowerCase());
+}
+
 function publicUser(u) {
   if (!u) return null;
   return {
+    isAdmin: isAdmin(u),
     id: u.id, username: u.username, coins: u.coins, xp: u.xp, level: levelFor(u.xp),
     avatar: u.avatar, forgelings: u.forgelings, gamesPlayed: u.gamesPlayed || 0, wins: u.wins || 0,
     dailyReady: u.lastDaily !== new Date().toISOString().slice(0, 10),
@@ -45,6 +52,7 @@ async function login(username, password) {
   const hit = await db().findOne('users', 'username', String(username || '').trim());
   if (!hit) throw new Error('Wrong username or password.');
   const u = hit.data;
+  if (u.banned) throw new Error('This account has been suspended.');
   const attempt = Buffer.from(hash(String(password || ''), u.salt), 'hex');
   if (!crypto.timingSafeEqual(attempt, Buffer.from(u.passHash, 'hex'))) throw new Error('Wrong username or password.');
   return createSession(u);
@@ -60,7 +68,8 @@ async function userFromToken(token) {
   if (!token || typeof token !== 'string') return null;
   const s = await db().get('sessions', token);
   if (!s) return null;
-  return db().get('users', s.userId);
+  const u = await db().get('users', s.userId);
+  return u && !u.banned ? u : null;
 }
 
 async function logout(token) {
@@ -81,9 +90,14 @@ function middleware() {
   };
 }
 
+function requireAdmin(req, res, next) {
+  if (!isAdmin(req.user)) return res.status(403).json({ error: 'Admins only.' });
+  next();
+}
+
 function requireUser(req, res, next) {
   if (!req.user) return res.status(401).json({ error: 'Log in to do that.' });
   next();
 }
 
-module.exports = { register, login, logout, userFromToken, saveUser, publicUser, levelFor, middleware, requireUser };
+module.exports = { register, login, logout, userFromToken, saveUser, publicUser, levelFor, middleware, requireUser, requireAdmin, isAdmin };

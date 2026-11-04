@@ -165,6 +165,7 @@ function floatText(el, text, tone = 'good') {
 // ---------- home ----------
 let homeSets = null;
 async function renderHome() {
+  $('home-admin-link').hidden = !(app.user && app.user.isAdmin);
   // floating background critters
   const bg = $('home-bg');
   if (!bg.children.length) {
@@ -249,7 +250,7 @@ document.addEventListener('click', e => {
   SFX.play('click');
   const to = go.dataset.go;
   if (to === 'home') { leaveGame(); renderAccountBar(); }
-  const needsUser = { shop: 'the Shop', locker: 'your Forgelings', history: 'your game history', homework: 'assign homework' };
+  const needsUser = { shop: 'the Shop', locker: 'your Forgelings', history: 'your game history', homework: 'assign homework', classes: 'use Classes' };
   if (needsUser[to] && !app.user) return openAuth('login', `Log in to see ${needsUser[to]}.`);
   if (to === 'host' || to === 'solo') return openSetup(to === 'solo');
   if (to === 'sets') return openSets();
@@ -259,6 +260,8 @@ document.addEventListener('click', e => {
   if (to === 'settings') return openSettings();
   if (to === 'join') return openJoin();
   if (to === 'homework') return openHomework();
+  if (to === 'classes') return openClasses();
+  if (to === 'admin') return openAdmin();
   show(to);
 });
 
@@ -346,7 +349,9 @@ $('auth-go').onclick = async () => {
     SFX.play('unlock');
     const next = afterAuth;
     afterAuth = null;
-    if (next) next(); else show('home');
+    if (next) next();
+    else if (app.pendingClassCode) openClasses();
+    else show('home');
   } catch (e) { $('auth-error').textContent = e.message; }
 };
 ['auth-user', 'auth-pass'].forEach(id => $(id).addEventListener('keydown', e => { if (e.key === 'Enter') $('auth-go').click(); }));
@@ -391,6 +396,13 @@ $('join-pin').addEventListener('input', async e => {
   const v = e.target.value;
   const box = $('join-hw-info');
   const isCode = /^[A-Z]{6}$/.test(v);
+  if (/^[A-Z]{3}[0-9]{3}$/.test(v)) {
+    box.hidden = false;
+    box.innerHTML = `<strong>🏫 That’s a class code</strong><span>Join classes from Classes on the home screen (you’ll need an account).</span><button class="btn btn-sky btn-small" id="join-to-class">Go to Classes</button>`;
+    $('join-to-class').onclick = () => { app.pendingClassCode = v; if (!app.user) return openAuth('login', 'Log in to join a class.'); openClasses(); };
+    $('join-go').textContent = 'Join game';
+    return;
+  }
   $('join-go').textContent = isCode ? 'Start homework' : 'Join game';
   if (!isCode) { box.hidden = true; return; }
   const run = ++hwLookup;
@@ -408,8 +420,12 @@ $('join-pin').addEventListener('input', async e => {
 });
 
 async function startHomework(code, name) {
-  const res = await emit('homework:start', { code, name, avatar: app.avatar.join });
-  if (res.error) return ($('join-error').textContent = res.error);
+  const res = await emit('homework:start', { code, name, avatar: app.avatar.join || (app.user && app.user.avatar) });
+  if (res.error) {
+    if ($('s-join').classList.contains('active')) $('join-error').textContent = res.error;
+    else alert(res.error);
+    return;
+  }
   Object.assign(app, { role: 'solo', pin: res.pin, playerId: res.playerId, mode: res.mode, imgCache: {}, homework: res.info });
   try { localStorage.setItem('qf-name', name); } catch {}
   SFX.play('start');
@@ -1244,10 +1260,13 @@ function renderSetsList() {
     li.innerHTML = `<div class="info"><strong>${esc(s.title)}</strong><span>${plural(s.count, 'question')}${s.hasImages ? ' · pictures' : ''}${mine ? (s.visibility === 'public' ? ' · published' : ' · private') : s.official ? '' : ' · by ' + esc(s.ownerName || 'someone')}${s.plays ? ' · ' + plural(s.plays, 'play') : ''}${s.description ? ' · ' + esc(s.description) : ''}</span>${badges(s)}</div>
       <button class="btn btn-sun btn-small" data-a="play">Play solo</button>
       ${mine ? '<button class="btn btn-ghost btn-small" data-a="edit">Edit</button><button class="btn btn-ghost btn-small" data-a="del">Delete</button>' : ''}
-      ${!mine && app.user ? '<button class="btn btn-ghost btn-small" data-a="copy">Make a copy</button>' : ''}`;
+      ${!mine && app.user ? '<button class="btn btn-ghost btn-small" data-a="copy">Make a copy</button>' : ''}
+      ${!mine ? '<button class="btn btn-ghost btn-small report-btn" data-a="report" title="Report this set" aria-label="Report this set">⚑</button>' : ''}`;
     li.querySelector('[data-a=play]').onclick = () => { app.setup.setId = s.id; openSetup(true); };
     const edit = li.querySelector('[data-a=edit]');
     if (edit) edit.onclick = () => openEditor(s.id);
+    const rpt = li.querySelector('[data-a=report]');
+    if (rpt) rpt.onclick = () => reportFlow(s);
     const copy = li.querySelector('[data-a=copy]');
     if (copy) copy.onclick = async () => { const c = await api(`/api/sets/${encodeURIComponent(s.id)}/copy`, { method: 'POST' }); openEditor(c.id); };
     const del = li.querySelector('[data-a=del]');
@@ -1665,6 +1684,12 @@ async function openHomework() {
     hwSets = [...d.mine.map(s => ({ ...s, group: 'Your sets' })), ...d.public.map(s => ({ ...s, group: s.subject || 'Other' }))];
   } catch { hwSets = []; }
   renderHwSetOptions();
+  try {
+    const c = await api('/api/classes');
+    $('hw-class').innerHTML = '<option value="">Anyone with the code</option>' + c.teaching.map(k => `<option value="${esc(k.id)}">🏫 ${esc(k.name)} (${plural(k.students, 'student')})</option>`).join('');
+    if (app.hwClassPreset) $('hw-class').value = app.hwClassPreset;
+  } catch {}
+  app.hwClassPreset = null;
   renderHwList();
 }
 
@@ -1691,7 +1716,7 @@ async function renderHwList() {
   for (const h of items) {
     const li = document.createElement('li');
     const due = h.due ? new Date(h.due).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : 'no due date';
-    li.innerHTML = `<div class="info"><strong>${esc(h.title)}</strong><span>${esc(h.setTitle)} · ${MODES[h.mode]?.name || h.mode} · due ${due} · ${plural(h.students, 'student')}</span></div>
+    li.innerHTML = `<div class="info"><strong>${esc(h.title)}</strong><span>${h.className ? '🏫 ' + esc(h.className) + ' · ' : ''}${esc(h.setTitle)} · ${MODES[h.mode]?.name || h.mode} · due ${due} · ${plural(h.students, 'student')}</span></div>
       <span class="code-pill">${h.code}</span>
       <button class="btn btn-sun btn-small">Report</button>`;
     li.querySelector('button').onclick = () => openHwReport(h.id);
@@ -1703,7 +1728,7 @@ $('hw-create').onclick = async () => {
   $('hw-error').textContent = '';
   if (!$('hw-set').value) return ($('hw-error').textContent = 'Pick a question set.');
   try {
-    const hw = await api('/api/homework', { body: { setId: $('hw-set').value, mode: $('hw-mode').value, title: $('hw-title').value, due: $('hw-due').value || null } });
+    const hw = await api('/api/homework', { body: { setId: $('hw-set').value, mode: $('hw-mode').value, title: $('hw-title').value, due: $('hw-due').value || null, classId: $('hw-class').value || null } });
     $('hw-title').value = '';
     SFX.play('unlock');
     openHwReport(hw.id);
@@ -1726,11 +1751,12 @@ async function openHwReport(id) {
     ${local ? '' : `<button class="btn btn-ghost btn-small" id="hwr-copy">Copy link</button>`}</div>`;
   const copy = $('hwr-copy');
   if (copy) copy.onclick = async () => { try { await navigator.clipboard.writeText(link); copy.textContent = 'Copied!'; } catch { prompt('Copy this link:', link); } };
+  renderShare($('hwr-share'), link, `Homework: ${a.title}`, `Play this QuizForge homework. Code: ${a.code}`);
   const sm = r.summary;
-  $('hwr-summary').innerHTML = [[sm.students, sm.students === 1 ? 'student started' : 'students started'], [sm.finished, 'finished'], [sm.average === null ? '–' : sm.average + '%', 'class average'], [r.questions.length, 'questions answered']]
+  $('hwr-summary').innerHTML = [[sm.students, sm.students === 1 ? 'student started' : 'students started'], [sm.finished + (sm.classSize ? ` / ${sm.classSize}` : ''), 'finished'], [sm.average === null ? '–' : sm.average + '%', 'class average'], [r.questions.length, 'questions answered']]
     .map(([n, l]) => `<div><strong>${n}</strong><span>${l}</span></div>`).join('');
   $('hwr-students').innerHTML = r.students.length
-    ? `<thead><tr><th>Student</th><th>Score</th><th>Right</th><th>Status</th><th>Attempts</th><th>Last played</th></tr></thead><tbody>${r.students.map(s => `<tr>
+    ? `<thead><tr><th>Student</th><th>Score</th><th>Right</th><th>Status</th><th>Attempts</th><th>Last played</th></tr></thead><tbody>${r.students.map(s => s.notStarted ? `<tr class="not-started"><td>${esc(s.name)}</td><td>–</td><td>–</td><td>❌ Not started</td><td>0</td><td>–</td></tr>` : `<tr>
         <td>${esc(s.name)}${s.account ? ' <span class="badge">account</span>' : ''}</td>
         <td><span class="score ${s.pct >= 80 ? 'hi' : s.pct >= 60 ? 'mid' : 'lo'}">${s.pct}%</span></td>
         <td>${s.correct}/${s.total}</td>
@@ -1750,6 +1776,248 @@ async function openHwReport(id) {
   };
 }
 
+// ---------- sharing ----------
+function isLocal() { return ['localhost', '127.0.0.1'].includes(location.hostname); }
+function renderShare(el, url, title, body) {
+  if (!el) return;
+  if (isLocal()) { el.innerHTML = '<span class="hint">Sharing links work on the online version.</span>'; return; }
+  const gc = `https://classroom.google.com/share?url=${encodeURIComponent(url)}&title=${encodeURIComponent(title)}&body=${encodeURIComponent(body)}`;
+  el.innerHTML = `<a class="btn btn-mint btn-small gc-btn" href="${gc}" target="_blank" rel="noopener">🎓 Share to Google Classroom</a>
+    <button class="btn btn-ghost btn-small" data-copy>🔗 Copy link</button>`;
+  el.querySelector('[data-copy]').onclick = async e => {
+    try { await navigator.clipboard.writeText(url); e.target.textContent = '✅ Copied'; } catch { prompt('Copy this link:', url); }
+  };
+}
+
+// ---------- report a set ----------
+async function reportFlow(set) {
+  let reasons = {};
+  try { reasons = await api('/api/report-reasons'); } catch {}
+  const card = overlay(`<h3>Report “${esc(set.title)}”</h3>
+    <p class="hint">Reports go to the QuizForge team. Sets that get several reports are hidden until we check them.</p>
+    <div class="report-reasons">${Object.entries(reasons).map(([k, v], i) => `<label class="check"><input type="radio" name="rr" value="${k}" ${i === 0 ? 'checked' : ''}> ${esc(v)}</label>`).join('')}</div>
+    <label class="field">Anything else? (optional)<textarea id="rr-details" maxlength="500" rows="3"></textarea></label>
+    <p class="error" id="rr-error"></p>
+    <div class="actions-2"><button class="btn btn-ghost" data-a="cancel">Cancel</button><button class="btn btn-coral" data-a="send">Send report</button></div>`);
+  card.querySelector('[data-a=cancel]').onclick = closeOverlay;
+  card.querySelector('[data-a=send]').onclick = async () => {
+    const reason = card.querySelector('input[name=rr]:checked')?.value;
+    try {
+      await api(`/api/sets/${encodeURIComponent(set.id)}/report`, { body: { reason, details: $('rr-details').value } });
+      overlay('<p class="big-result">Thanks, report sent</p>');
+      setTimeout(closeOverlay, 1200);
+    } catch (e) { $('rr-error').textContent = e.message; }
+  };
+}
+
+// ---------- classes ----------
+async function openClasses() {
+  if (!app.user) return openAuth('login', 'Log in to use Classes.');
+  show('classes');
+  $('cls-join-error').textContent = '';
+  $('cls-new-error').textContent = '';
+  if (app.pendingClassCode) { $('cls-join-code').value = app.pendingClassCode; app.pendingClassCode = null; }
+  const data = await api('/api/classes');
+  const enr = $('cls-enrolled');
+  enr.innerHTML = data.enrolled.length ? '' : '<p class="hint">You haven’t joined any classes yet. Ask your teacher for the class code.</p>';
+  for (const c of data.enrolled) {
+    const box = document.createElement('div');
+    box.className = 'card class-card';
+    const todo = c.homework.filter(h => h.status !== 'done').length;
+    box.innerHTML = `<div class="row-between"><div><strong>🏫 ${esc(c.name)}</strong><span class="muted"> · ${esc(c.teacher)}</span></div>
+      <button class="link" data-leave>Leave</button></div>
+      <p class="muted">${c.homework.length ? (todo ? `${plural(todo, 'assignment')} to do` : 'All caught up ✅') : 'No homework yet'}</p>
+      <ul class="hw-todo">${c.homework.map(h => `<li class="st-${h.status}">
+        <div><strong>${esc(h.title)}</strong><span class="muted">${esc(h.setTitle)} · ${plural(h.count, 'question')} · ${MODES[h.mode]?.icon || ''} ${MODES[h.mode]?.name || ''}${h.due ? ` · due ${new Date(h.due).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' })}` : ''}</span></div>
+        <span class="hw-status">${h.status === 'done' ? `✅ ${h.pct}%` : h.status === 'started' ? '⏳ Started' : h.late ? '<b class="late">Late</b>' : ''}</span>
+        <button class="btn ${h.status === 'done' ? 'btn-ghost' : 'btn-sun'} btn-small" data-code="${h.code}">${h.status === 'done' ? 'Play again' : h.status === 'started' ? 'Continue' : 'Start'}</button>
+      </li>`).join('')}</ul>`;
+    box.querySelector('[data-leave]').onclick = async () => {
+      if (!confirm(`Leave ${c.name}?`)) return;
+      await api(`/api/classes/${encodeURIComponent(c.id)}/leave`, { method: 'POST' });
+      openClasses();
+    };
+    box.querySelectorAll('[data-code]').forEach(b => b.onclick = () => startHomework(b.dataset.code, app.user.username));
+    enr.appendChild(box);
+  }
+  const t = $('cls-teaching');
+  t.innerHTML = data.teaching.length ? '' : '<li>Make a class to give your students one code they join once.</li>';
+  for (const c of data.teaching) {
+    const li = document.createElement('li');
+    li.innerHTML = `<div class="info"><strong>🏫 ${esc(c.name)}</strong><span>${plural(c.students, 'student')}</span></div><span class="code-pill">${c.code}</span><button class="btn btn-sun btn-small">Open</button>`;
+    li.querySelector('button').onclick = () => openClass(c.id);
+    t.appendChild(li);
+  }
+}
+
+$('cls-join-code').addEventListener('input', e => { e.target.value = e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''); });
+$('cls-join').onclick = async () => {
+  try {
+    const r = await api('/api/classes/join', { body: { code: $('cls-join-code').value } });
+    $('cls-join-code').value = '';
+    SFX.play('unlock');
+    if (r.already) $('cls-join-error').textContent = `You’re already in ${r.class.name}.`;
+    openClasses();
+  } catch (e) { $('cls-join-error').textContent = e.message; }
+};
+$('cls-create').onclick = async () => {
+  try {
+    const c = await api('/api/classes', { body: { name: $('cls-new-name').value } });
+    $('cls-new-name').value = '';
+    SFX.play('unlock');
+    openClass(c.id);
+  } catch (e) { $('cls-new-error').textContent = e.message; }
+};
+
+async function openClass(id) {
+  show('class');
+  $('cl-name').textContent = 'Loading…';
+  $('cl-roster').innerHTML = '';
+  $('cl-hw').innerHTML = '';
+  const c = await api('/api/classes/' + encodeURIComponent(id));
+  $('cl-name').textContent = '🏫 ' + c.name;
+  $('cl-code').innerHTML = `<div><span class="card-label">Class code</span><div class="hw-code">${c.code}</div></div>
+    <div class="hw-code-info"><span>${plural(c.students, 'student')}</span>
+    <span class="muted">Students: log in, open Classes on the home screen, and type this code once.</span></div>`;
+  renderShare($('cl-share'), `${location.origin}/?class=${c.code}`, `Join my QuizForge class: ${c.name}`, `Log in to QuizForge and join with code ${c.code}`);
+  $('cl-hw').innerHTML = c.assignments.length ? '' : '<li>No homework yet. Assign some and everyone in the class sees it.</li>';
+  for (const h of c.assignments) {
+    const li = document.createElement('li');
+    li.innerHTML = `<div class="info"><strong>${esc(h.title)}</strong><span>${MODES[h.mode]?.name || h.mode}${h.due ? ' · due ' + new Date(h.due).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : ''} · ${h.done}/${c.students} done</span></div><span class="code-pill">${h.code}</span><button class="btn btn-ghost btn-small">Report</button>`;
+    li.querySelector('button').onclick = () => openHwReport(h.id);
+    $('cl-hw').appendChild(li);
+  }
+  $('cl-roster-title').textContent = `Students (${c.students})`;
+  $('cl-roster').innerHTML = c.roster.length ? '' : '<li>No students yet. Share the class code.</li>';
+  for (const st of c.roster) {
+    const li = document.createElement('li');
+    li.innerHTML = `<div class="info"><strong>${esc(st.username)}</strong><span>joined ${new Date(st.joinedAt).toLocaleDateString()}</span></div><button class="btn btn-ghost btn-small">Remove</button>`;
+    li.querySelector('button').onclick = async () => {
+      if (!confirm(`Remove ${st.username} from ${c.name}?`)) return;
+      await api(`/api/classes/${encodeURIComponent(c.id)}/students/${encodeURIComponent(st.userId)}`, { method: 'DELETE' });
+      openClass(c.id);
+    };
+    $('cl-roster').appendChild(li);
+  }
+  $('cl-assign').onclick = () => { app.hwClassPreset = c.id; openHomework(); };
+  $('cl-delete').onclick = async () => {
+    if (!confirm(`Delete ${c.name}? Students are removed from it. Homework you assigned stays in your Homework list.`)) return;
+    await api('/api/classes/' + encodeURIComponent(c.id), { method: 'DELETE' });
+    openClasses();
+  };
+}
+
+// ---------- admin ----------
+let adminTab = 'stats';
+async function openAdmin() {
+  if (!app.user || !app.user.isAdmin) return show('home');
+  show('admin');
+  showAdminTab(adminTab);
+}
+document.querySelectorAll('[data-atab]').forEach(t => t.onclick = () => showAdminTab(t.dataset.atab));
+
+function showAdminTab(tab) {
+  adminTab = tab;
+  document.querySelectorAll('[data-atab]').forEach(t => t.setAttribute('aria-selected', String(t.dataset.atab === tab)));
+  ['stats', 'reports', 'users'].forEach(k => { $('adm-' + k).hidden = k !== tab; });
+  if (tab === 'stats') loadAdminStats();
+  if (tab === 'reports') loadAdminReports();
+  if (tab === 'users') loadAdminUsers();
+}
+
+async function loadAdminStats() {
+  const el = $('adm-stats');
+  el.innerHTML = '<p class="hint">Loading…</p>';
+  const s = await api('/api/admin/stats');
+  $('adm-report-count').textContent = s.reportsOpen ? s.reportsOpen : '';
+  const tile = (n, l, cls = '') => `<div class="tile ${cls}"><strong>${n}</strong><span>${l}</span></div>`;
+  const maxG = Math.max(1, ...s.days.map(d => d.games));
+  const maxM = Math.max(1, ...s.modes.map(m => m[1]));
+  el.innerHTML = `
+    <div class="tiles">
+      ${tile(s.live.players, 'playing right now', 'live')}${tile(s.live.games, 'games running now', 'live')}
+      ${tile(s.games.today, 'games today')}${tile(s.games.week, 'games this week')}
+      ${tile(s.games.playersWeek, 'players this week')}${tile(s.users.total, 'accounts')}
+      ${tile(s.users.week, 'new accounts this week')}${tile(s.sets.published, 'community sets published')}
+      ${tile(s.homework.assignments, 'homework assigned')}${tile(s.homework.submissions, 'homework attempts')}
+      ${tile(s.homework.classes, 'classes')}${tile(s.reportsOpen, 'sets reported', s.reportsOpen ? 'warn' : '')}
+    </div>
+    <div class="card">
+      <p class="card-label">Games per day (last 30 days)</p>
+      <div class="day-chart">${s.days.map(d => `<div class="day" title="${d.date}: ${d.games} games, ${d.players} players, ${d.signups} sign-ups"><i style="height:${Math.round((d.games / maxG) * 100)}%"></i><span>${d.games || ''}</span></div>`).join('')}</div>
+      <div class="chart-axis"><span>${s.days[0].date}</span><span>today</span></div>
+    </div>
+    <div class="admin-cols">
+      <div class="card"><p class="card-label">Most played modes (30 days)</p>
+        ${s.modes.length ? s.modes.map(([m, n]) => `<div class="hbar"><span>${MODES[m]?.icon || ''} ${MODES[m]?.name || m}</span><div><i style="width:${Math.round((n / maxM) * 100)}%"></i></div><b>${n}</b></div>`).join('') : '<p class="hint">No games yet.</p>'}
+      </div>
+      <div class="card"><p class="card-label">Most played sets</p>
+        <ol class="top-sets">${s.topSets.filter(t => t.plays).map(t => `<li><span>${esc(t.title)}${t.official ? '' : ` <small class="muted">by ${esc(t.ownerName || '?')}</small>`}</span><b>${t.plays}</b></li>`).join('') || '<li class="hint">No plays yet.</li>'}</ol>
+      </div>
+    </div>
+    <p class="hint">Sets: ${s.sets.official} official, ${s.sets.community} made by users (${s.sets.hidden} hidden). Banned accounts: ${s.users.banned}. Games include ones hosted by guests.</p>`;
+}
+
+async function loadAdminReports() {
+  const el = $('adm-reports');
+  el.innerHTML = '<p class="hint">Loading…</p>';
+  const reps = await api('/api/admin/reports');
+  $('adm-report-count').textContent = reps.length || '';
+  let reasons = {};
+  try { reasons = await api('/api/report-reasons'); } catch {}
+  if (!reps.length) { el.innerHTML = '<p class="empty">No open reports. 🎉</p>'; return; }
+  el.innerHTML = '';
+  for (const r of reps) {
+    const card = document.createElement('div');
+    card.className = 'card report-card';
+    card.innerHTML = `<div class="row-between"><div><strong>${esc(r.setTitle)}</strong> <span class="muted">by ${esc(r.ownerName)}</span>
+      ${r.hidden ? '<span class="badge diff-hard">Hidden</span>' : '<span class="badge diff-easy">Visible</span>'}${r.official ? ' <span class="badge official">Official</span>' : ''}</div>
+      <span class="report-count">⚑ ${r.count}</span></div>
+      <p>${Object.entries(r.reasons).map(([k, n]) => `<span class="badge">${esc(reasons[k] || k)} × ${n}</span>`).join(' ')}</p>
+      ${r.notes.length ? `<ul class="report-notes">${r.notes.slice(0, 5).map(n => `<li><b>${esc(n.by)}:</b> ${esc(n.text)}</li>`).join('')}</ul>` : ''}
+      <div class="add-row">
+        <button class="btn btn-ghost btn-small" data-act="preview">Preview</button>
+        <button class="btn btn-mint btn-small" data-act="dismiss">Dismiss (it’s fine)</button>
+        ${r.hidden ? '<button class="btn btn-ghost btn-small" data-act="unhide">Unhide</button>' : '<button class="btn btn-sun btn-small" data-act="hide">Hide from Discover</button>'}
+        <button class="btn btn-coral btn-small" data-act="delete">Delete set</button>
+      </div>`;
+    card.querySelectorAll('[data-act]').forEach(b => b.onclick = async () => {
+      const act = b.dataset.act;
+      if (act === 'preview') return previewSet(r.setId);
+      if (act === 'delete' && !confirm(`Delete “${r.setTitle}” for good?`)) return;
+      await api(`/api/admin/sets/${encodeURIComponent(r.setId)}/${act}`, { method: 'POST' });
+      loadAdminReports();
+    });
+    el.appendChild(card);
+  }
+}
+
+async function previewSet(id) {
+  const set = await api('/api/admin/sets/' + encodeURIComponent(id));
+  const card = overlay(`<h3>${esc(set.title)}</h3><p class="hint">${esc(set.description || '')} · by ${esc(set.ownerName || '?')}</p>
+    <ol class="preview-list">${set.questions.map(q => `<li>${q.img ? `<img src="${q.img}" alt="">` : ''}<div>${mathHTML(q.q || '(picture)')}</div>
+      <small class="muted">${q.type === 'type' ? 'Accepts: ' + q.accept.map(esc).join(', ') : q.a.map((a, i) => (q.c.includes(i) ? '✅ ' : '') + esc(a)).join(' · ')}</small></li>`).join('')}</ol>
+    <button class="btn btn-ghost" data-close>Close</button>`);
+  card.querySelector('[data-close]').onclick = closeOverlay;
+}
+
+let userSearchTimer = null;
+$('adm-user-q').addEventListener('input', () => { clearTimeout(userSearchTimer); userSearchTimer = setTimeout(loadAdminUsers, 250); });
+async function loadAdminUsers() {
+  const users = await api('/api/admin/users?q=' + encodeURIComponent($('adm-user-q').value));
+  const t = $('adm-user-table');
+  t.innerHTML = `<thead><tr><th>User</th><th>Joined</th><th>Level</th><th>Games</th><th>Sets</th><th></th></tr></thead><tbody>${users.map(u => `<tr class="${u.banned ? 'not-started' : ''}">
+    <td>${esc(u.username)}${u.admin ? ' <span class="badge official">admin</span>' : ''}${u.banned ? ' <span class="badge diff-hard">banned</span>' : ''}</td>
+    <td>${u.createdAt ? new Date(u.createdAt).toLocaleDateString() : '–'}</td><td>${u.level}</td><td>${u.gamesPlayed}</td><td>${u.sets} (${u.published} public)</td>
+    <td>${u.admin ? '' : `<button class="btn ${u.banned ? 'btn-ghost' : 'btn-coral'} btn-small" data-ban="${esc(u.id)}" data-to="${u.banned ? '0' : '1'}">${u.banned ? 'Unban' : 'Ban'}</button>`}</td></tr>`).join('') || '<tr><td>No users found.</td></tr>'}</tbody>`;
+  t.querySelectorAll('[data-ban]').forEach(b => b.onclick = async () => {
+    const banning = b.dataset.to === '1';
+    if (banning && !confirm('Ban this account? They can’t log in and their published sets are hidden.')) return;
+    await api(`/api/admin/users/${encodeURIComponent(b.dataset.ban)}/ban`, { body: { banned: banning } });
+    loadAdminUsers();
+  });
+}
+
 // ---------- boot ----------
 (async () => {
   try { $('join-name').value = localStorage.getItem('qf-name') || ''; } catch {}
@@ -1758,6 +2026,12 @@ async function openHwReport(id) {
   app.catalog = catalog || { basic: ['🤖'], collectibles: [], packs: {} };
   renderAccountBar();
   show('home');
+  const classCode = new URLSearchParams(location.search).get('class');
+  if (classCode && /^[A-Za-z]{3}[0-9]{3}$/.test(classCode)) {
+    app.pendingClassCode = classCode.toUpperCase();
+    history.replaceState(null, '', location.pathname);
+    if (app.user) openClasses(); else openAuth('login', 'Log in (or create an account) to join the class.');
+  }
   const hw = new URLSearchParams(location.search).get('hw');
   if (hw && /^[A-Za-z]{6}$/.test(hw)) {
     openJoin();

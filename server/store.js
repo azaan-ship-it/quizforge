@@ -83,7 +83,7 @@ function meta(set) {
     visibility: set.visibility, owner: set.owner, ownerName: set.ownerName, updatedAt: set.updatedAt,
     hasImages: set.questions.some(q => q.img), plays: set.plays || 0,
     subject: set.subject || 'Other', grade: set.grade || 'Any', difficulty: set.difficulty || 'medium',
-    official: !!set.official,
+    official: !!set.official, hidden: !!set.hidden, hiddenBy: set.hiddenBy || null,
   };
 }
 
@@ -130,7 +130,7 @@ async function seedFresh(dataDir) {
 async function list(user) {
   const all = (await db().list('setmeta')).map(r => r.data);
   const mine = user ? all.filter(s => s.owner === user.id) : [];
-  const pub = all.filter(s => s.visibility === 'public' && (!user || s.owner !== user.id))
+  const pub = all.filter(s => s.visibility === 'public' && !s.hidden && (!user || s.owner !== user.id))
     .sort((a, b) => (b.plays || 0) - (a.plays || 0));
   return { mine, public: pub };
 }
@@ -140,7 +140,21 @@ async function get(id) {
 }
 
 function canRead(set, user) {
-  return set && (set.visibility === 'public' || (user && set.owner === user.id));
+  return set && ((set.visibility === 'public' && !set.hidden) || (user && set.owner === user.id));
+}
+
+// moderation: hide a set from Discover (owner still sees it) or delete it outright
+async function setHidden(id, hidden, by = null) {
+  const set = await get(id);
+  if (!set) return;
+  set.hidden = !!hidden;
+  set.hiddenBy = hidden ? by : null;
+  await writeSet(set);
+}
+
+async function adminDelete(id) {
+  await db().del('sets', id);
+  await db().del('setmeta', id);
 }
 
 async function save(input, user) {
@@ -182,4 +196,4 @@ async function countPlay(id) {
   await db().put('setmeta', id, m, m.owner);
 }
 
-module.exports = { init, list, get, canRead, save, copy, remove, countPlay, cleanQuestion, SUBJECTS, GRADES, DIFFICULTIES };
+module.exports = { init, list, get, canRead, save, copy, remove, countPlay, cleanQuestion, setHidden, adminDelete, SUBJECTS, GRADES, DIFFICULTIES };

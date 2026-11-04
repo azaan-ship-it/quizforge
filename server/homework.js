@@ -24,7 +24,13 @@ async function create(user, body, store) {
     due = Number(new Date(body.due));
     if (!Number.isFinite(due)) throw new Error('That due date doesn’t look right.');
   }
+  let cls = null;
+  if (body.classId) {
+    cls = await db().get('classes', body.classId);
+    if (!cls || cls.owner !== user.id) throw new Error('Pick one of your classes.');
+  }
   const hw = {
+    classId: cls ? cls.id : null, className: cls ? cls.name : null,
     id: crypto.randomUUID(), code: await newCode(), owner: user.id, teacher: user.username,
     title: String(body.title || '').trim().slice(0, 80) || set.title,
     setId: set.id, setTitle: set.title, count: set.questions.length, mode, due, created: Date.now(),
@@ -39,7 +45,7 @@ async function getByCode(code) {
 }
 
 function publicInfo(hw) {
-  return { code: hw.code, title: hw.title, setTitle: hw.setTitle, count: hw.count, mode: hw.mode, due: hw.due, teacher: hw.teacher, late: !!(hw.due && Date.now() > hw.due) };
+  return { code: hw.code, title: hw.title, setTitle: hw.setTitle, count: hw.count, mode: hw.mode, due: hw.due, teacher: hw.teacher, className: hw.className || null, late: !!(hw.due && Date.now() > hw.due) };
 }
 
 async function list(user) {
@@ -57,9 +63,12 @@ async function report(user, id) {
   const hw = await db().get('homework', id);
   if (!hw || hw.owner !== user.id) throw Object.assign(new Error('Assignment not found.'), { status: 404 });
   const subs = (await db().list('hwsub', { owner: id, limit: 2000 })).map(r => r.data);
+  const cls = hw.classId ? await db().get('classes', hw.classId) : null;
+  const rosterName = new Map((cls ? cls.students : []).map(s => [s.userId, s.username]));
   const byStudent = new Map();
   for (const s of subs) {
-    const key = s.name.toLowerCase();
+    if (s.userId && rosterName.has(s.userId)) s.name = rosterName.get(s.userId);
+    const key = s.userId ? 'u:' + s.userId : s.name.toLowerCase();
     const cur = byStudent.get(key) || { name: s.name, attempts: 0, best: null, lastAt: 0 };
     cur.attempts++;
     cur.lastAt = Math.max(cur.lastAt, s.finishedAt);
@@ -71,7 +80,15 @@ async function report(user, id) {
     name: st.name, attempts: st.attempts, lastAt: st.lastAt,
     correct: st.best.correct, answered: st.best.answered, total: st.best.total, pct: st.best.pct,
     complete: st.best.complete, late: st.best.late, mode: st.best.mode, account: !!st.best.userId,
-  })).sort((a, b) => a.name.localeCompare(b.name));
+    inClass: !!(st.best.userId && rosterName.has(st.best.userId)),
+  }));
+  // class members who haven't started yet
+  if (cls) {
+    for (const s of cls.students) {
+      if (!byStudent.has('u:' + s.userId)) students.push({ name: s.username, notStarted: true, inClass: true, account: true, attempts: 0, pct: 0, correct: 0, answered: 0, total: hw.count });
+    }
+  }
+  students.sort((a, b) => (!!a.notStarted - !!b.notStarted) || a.name.localeCompare(b.name));
   // per-question accuracy from each student's best attempt
   const qStats = new Map();
   for (const st of byStudent.values()) {
@@ -84,7 +101,7 @@ async function report(user, id) {
   const questions = [...qStats.values()].sort((a, b) => a.right / (a.right + a.wrong) - b.right / (b.right + b.wrong));
   const done = students.filter(s => s.complete);
   const avg = done.length ? Math.round(done.reduce((n, s) => n + s.pct, 0) / done.length) : null;
-  return { assignment: hw, students, questions, summary: { students: students.length, finished: done.length, average: avg } };
+  return { assignment: hw, students, questions, summary: { students: students.filter(s => !s.notStarted).length, finished: done.length, average: avg, notStarted: students.filter(s => s.notStarted).length, classSize: cls ? cls.students.length : null } };
 }
 
 async function remove(user, id) {

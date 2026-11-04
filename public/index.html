@@ -3,7 +3,25 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>QuizForge</title>
+  <title>QuizForge – Free Live Quiz Games for Classrooms</title>
+  <meta name="description" content="QuizForge is a free live quiz game for classrooms. Host games with a PIN, play 16 game modes, use 120+ ready-made question sets for math, science and more, assign homework and collect Forgelings. By ByteForge Studios.">
+  <meta name="keywords" content="QuizForge, quiz game, classroom game, Blooket alternative, Kahoot alternative, review game, homework, math quiz, science quiz">
+  <meta name="author" content="ByteForge Studios">
+  <meta name="theme-color" content="#1a1033">
+  <link rel="canonical" href="https://playquizforge.onrender.com/">
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="QuizForge">
+  <meta property="og:title" content="QuizForge – Free Live Quiz Games for Classrooms">
+  <meta property="og:description" content="16 game modes, 120+ ready-made question sets, homework mode and 100+ collectible Forgelings. Play free in your browser.">
+  <meta property="og:url" content="https://playquizforge.onrender.com/">
+  <meta property="og:image" content="https://playquizforge.onrender.com/assets/og-image.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="QuizForge – Free Live Quiz Games for Classrooms">
+  <meta name="twitter:description" content="16 game modes, 120+ ready-made question sets, homework mode and 100+ collectible Forgelings.">
+  <meta name="twitter:image" content="https://playquizforge.onrender.com/assets/og-image.png">
+  <script type="application/ld+json">{"@context":"https://schema.org","@type":"WebApplication","name":"QuizForge","url":"https://playquizforge.onrender.com/","applicationCategory":"EducationalApplication","operatingSystem":"Web, Windows","offers":{"@type":"Offer","price":"0","priceCurrency":"USD"},"description":"Free live quiz games for classrooms with 16 game modes, 120+ question sets and homework mode.","author":{"@type":"Organization","name":"ByteForge Studios"}}</script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
@@ -31,9 +49,11 @@
         <div class="home-links">
           <button class="link" data-go="shop">🛒 Shop</button>
           <button class="link" data-go="locker">🤖 Forgelings</button>
+          <button class="link" data-go="classes">🏫 Classes</button>
           <button class="link" data-go="homework">📝 Homework</button>
           <button class="link" data-go="history">📜 Game history</button>
           <button class="link" data-go="settings">⚙️ Settings</button>
+          <button class="link" data-go="admin" id="home-admin-link" hidden>🛡️ Admin</button>
         </div>
       </div>
       <aside class="hero-side">
@@ -391,11 +411,78 @@
         <label class="field">Search sets <input id="hw-search" type="search" placeholder="Type to filter the list below"></label>
         <label class="field">Question set <select id="hw-set"></select></label>
         <label class="field">Game mode <select id="hw-mode"></select></label>
+        <label class="field">Assign to <select id="hw-class"><option value="">Anyone with the code</option></select></label>
         <p class="error" id="hw-error" role="alert"></p>
         <button class="btn btn-sun" id="hw-create">Create assignment</button>
       </div>
       <h3>Your assignments</h3>
       <ul class="set-list" id="hw-list"></ul>
+    </div>
+  </section>
+
+  <!-- Classes -->
+  <section class="screen" id="s-classes">
+    <div class="panel wide">
+      <button class="back" data-go="home">Back</button>
+      <h2>Classes</h2>
+      <div class="class-cols">
+        <div>
+          <h3>Classes you’re in</h3>
+          <div class="card join-class">
+            <label class="field">Class code from your teacher
+              <input id="cls-join-code" maxlength="6" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="ABC123">
+            </label>
+            <p class="error" id="cls-join-error" role="alert"></p>
+            <button class="btn btn-sun" id="cls-join">Join class</button>
+          </div>
+          <div id="cls-enrolled"></div>
+        </div>
+        <div>
+          <h3>Classes you teach</h3>
+          <div class="card">
+            <label class="field">New class name <input id="cls-new-name" maxlength="60" placeholder="Period 3 Science"></label>
+            <p class="error" id="cls-new-error" role="alert"></p>
+            <button class="btn btn-sky" id="cls-create">Create class</button>
+          </div>
+          <ul class="set-list" id="cls-teaching"></ul>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- One class (teacher) -->
+  <section class="screen" id="s-class">
+    <div class="panel wide">
+      <button class="back" data-go="classes">Back to classes</button>
+      <div class="row-between">
+        <h2 id="cl-name">Class</h2>
+        <button class="btn btn-ghost btn-small" id="cl-delete">Delete class</button>
+      </div>
+      <div class="hw-code-card" id="cl-code"></div>
+      <div class="add-row" id="cl-share"></div>
+      <div class="row-between"><h3>Homework</h3><button class="btn btn-sun btn-small" id="cl-assign">Assign homework</button></div>
+      <ul class="set-list" id="cl-hw"></ul>
+      <h3 id="cl-roster-title">Students</h3>
+      <ul class="set-list" id="cl-roster"></ul>
+    </div>
+  </section>
+
+  <!-- Admin -->
+  <section class="screen" id="s-admin">
+    <div class="panel wide admin-panel">
+      <button class="back" data-go="home">Back</button>
+      <h2>🛡️ Admin</h2>
+      <div class="tabs" role="tablist">
+        <button class="tab" role="tab" data-atab="stats" aria-selected="true">Stats</button>
+        <button class="tab" role="tab" data-atab="reports" aria-selected="false">Reports <span class="tab-count" id="adm-report-count"></span></button>
+        <button class="tab" role="tab" data-atab="users" aria-selected="false">Users</button>
+      </div>
+      <div id="adm-stats" class="adm-pane"></div>
+      <div id="adm-reports" class="adm-pane" hidden></div>
+      <div id="adm-users" class="adm-pane" hidden>
+        <input type="search" id="adm-user-q" class="adm-search" placeholder="Search usernames">
+        <div class="table-wrap"><table class="hw-table" id="adm-user-table"></table></div>
+      </div>
     </div>
   </section>
 
@@ -408,6 +495,7 @@
         <button class="btn btn-ghost btn-small" id="hwr-delete">Delete assignment</button>
       </div>
       <div class="hw-code-card" id="hwr-code"></div>
+      <div class="add-row" id="hwr-share"></div>
       <div class="stats-card card" id="hwr-summary"></div>
       <h3>Students</h3>
       <div class="table-wrap"><table class="hw-table" id="hwr-students"></table></div>

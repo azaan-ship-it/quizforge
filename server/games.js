@@ -6,6 +6,7 @@ const progress = require('./progress');
 const extra = require('./modes');
 const { isBadName } = require('./namefilter');
 const homework = require('./homework');
+const admin = require('./admin');
 
 const EMOTES = ['🔥', '😱', '😂', '👏', '😎', '💀', '🤯', '❤️'];
 
@@ -217,6 +218,7 @@ function startGame(room) {
   room.timer = setInterval(() => tick(room), 1000);
   io.to(chan(room)).emit('game:start', { mode: room.mode, setTitle: room.set.title, goal: room.settings.goal });
   broadcast(room);
+  admin.recordGame(room);
   store.countPlay(room.set.id).catch(() => {});
 }
 
@@ -675,7 +677,8 @@ function attach(ioServer, setStore) {
       if (!hw) return reply(cb, { error: 'No homework with that code. Check it with your teacher.' });
       const set = await store.get(hw.setId).catch(() => null);
       if (!set || !set.questions.length) return reply(cb, { error: 'This homework’s question set was deleted. Tell your teacher.' });
-      const clean = cleanName(name) || (user ? user.username : '');
+      // logged-in students always hand in under their account name, so class reports line up
+      const clean = user ? user.username : cleanName(name);
       if (!clean) return reply(cb, { error: 'Enter your name so your teacher knows it’s you.' });
       if (isBadName(clean)) return reply(cb, { error: 'Please use your real name.' });
       const room = createRoom({ set, mode: hw.mode, settings: { duration: 30 }, hostSocketId: socket.id, hostUser: null, solo: true });
@@ -816,4 +819,15 @@ function attach(ioServer, setStore) {
   });
 }
 
-module.exports = { attach };
+function liveStats() {
+  let games = 0, players = 0, hosting = 0;
+  for (const r of rooms.values()) {
+    if (r.state !== 'playing' && r.state !== 'lobby') continue;
+    games++;
+    if (!r.solo) hosting++;
+    for (const p of r.players.values()) if (!p.bot && p.online) players++;
+  }
+  return { games, players, liveHosted: hosting };
+}
+
+module.exports = { attach, liveStats };
