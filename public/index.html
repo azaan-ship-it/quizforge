@@ -1,0 +1,454 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>QuizForge</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Atkinson+Hyperlegible:wght@400;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+  <link rel="icon" type="image/png" href="/assets/icon.png">
+  <link rel="apple-touch-icon" href="/assets/icon.png">
+</head>
+<body>
+<main id="app">
+
+  <!-- Home -->
+  <section class="screen" id="s-home">
+    <div class="home-bg" id="home-bg" aria-hidden="true"></div>
+    <nav class="account-bar" id="account-bar"></nav>
+    <div class="home2">
+      <div class="hero">
+        <h1 class="logo">QuizForge</h1>
+        <p class="tagline">Live quiz games your whole class will beg for. 16 ways to play, 120+ ready-made sets.</p>
+        <div class="home-actions">
+          <button class="btn btn-big btn-sun" data-go="join">Join a game</button>
+          <button class="btn btn-big btn-sky" data-go="host">Host a game</button>
+          <button class="btn btn-big btn-mint" data-go="solo">Play solo</button>
+          <button class="btn btn-big btn-ghost" data-go="sets">Question sets</button>
+        </div>
+        <div class="home-links">
+          <button class="link" data-go="shop">🛒 Shop</button>
+          <button class="link" data-go="locker">🤖 Forgelings</button>
+          <button class="link" data-go="homework">📝 Homework</button>
+          <button class="link" data-go="history">📜 Game history</button>
+          <button class="link" data-go="settings">⚙️ Settings</button>
+        </div>
+      </div>
+      <aside class="hero-side">
+        <div class="card player-card" id="home-player"></div>
+        <div class="card stats-card" id="home-stats"></div>
+        <div class="card parade-card">
+          <p class="card-label">Forgelings to collect</p>
+          <div class="parade" id="home-parade"></div>
+        </div>
+      </aside>
+    </div>
+    <section class="home-row">
+      <div class="row-head"><h2>Pick a mode</h2><span class="muted">Tap one to jump into a solo game</span></div>
+      <div class="mode-strip" id="home-modes"></div>
+    </section>
+    <section class="home-row">
+      <div class="row-head"><h2>Popular sets</h2><button class="link" id="home-all-sets">See all 120+</button></div>
+      <div class="set-strip" id="home-sets"></div>
+    </section>
+    <p class="fineprint">A ByteForge Studios game</p>
+  </section>
+
+  <!-- Auth -->
+  <section class="screen" id="s-auth">
+    <div class="panel narrow">
+      <button class="back" data-go="home">Back</button>
+      <h2 id="auth-title">Log in</h2>
+      <p class="hint" id="auth-where"></p>
+      <label class="field">Username <input id="auth-user" maxlength="20" autocomplete="username"></label>
+      <label class="field">Password <input id="auth-pass" type="password" autocomplete="current-password"></label>
+      <p class="error" id="auth-error" role="alert"></p>
+      <button class="btn btn-sun btn-wide" id="auth-go">Log in</button>
+      <p class="switch-line"><span id="auth-switch-text">New here?</span> <button class="link" id="auth-switch">Create an account</button></p>
+    </div>
+  </section>
+
+  <!-- Join -->
+  <section class="screen" id="s-join">
+    <div class="panel narrow">
+      <button class="back" data-go="home">Back</button>
+      <h2>Join a game</h2>
+      <label class="field">Game PIN or homework code
+        <input id="join-pin" class="pin-input" maxlength="6" autocomplete="off" autocapitalize="characters" spellcheck="false" placeholder="PIN / CODE">
+      </label>
+      <div class="hw-info" id="join-hw-info" hidden></div>
+      <label class="field">Your name
+        <input id="join-name" maxlength="20" autocomplete="off" placeholder="Name">
+      </label>
+      <div class="field">Pick a Forgeling
+        <div class="avatar-grid" id="join-avatars"></div>
+      </div>
+      <p class="hint" id="join-guest-hint">Playing as a guest. Log in to earn coins and XP.</p>
+      <p class="error" id="join-error" role="alert"></p>
+      <button class="btn btn-sun btn-wide" id="join-go">Join game</button>
+    </div>
+  </section>
+
+  <!-- Setup (host or solo) -->
+  <section class="screen" id="s-setup">
+    <div class="panel wide">
+      <button class="back" data-go="home">Back</button>
+      <h2 id="setup-title">Host a game</h2>
+      <h3>Question set</h3>
+      <div class="filters" id="setup-filters"></div>
+      <div class="set-pick" id="setup-sets"></div>
+      <h3>Game mode</h3>
+      <div class="mode-pick" id="setup-modes"></div>
+      <div class="setup-row">
+        <label class="field">Length
+          <select id="setup-duration">
+            <option value="3">3 minutes</option>
+            <option value="5" selected>5 minutes</option>
+            <option value="8">8 minutes</option>
+            <option value="12">12 minutes</option>
+            <option value="20">20 minutes</option>
+          </select>
+        </label>
+        <label class="field" id="setup-goal-field">Win at
+          <select id="setup-goal">
+            <option value="0">No goal, play the clock</option>
+            <option value="10">10 correct</option>
+            <option value="15" selected>15 correct</option>
+            <option value="25">25 correct</option>
+          </select>
+        </label>
+      </div>
+      <div id="setup-solo-fields" hidden>
+        <label class="field">Your name
+          <input id="solo-name" maxlength="20" autocomplete="off" placeholder="Name">
+        </label>
+        <div class="field">Pick a Forgeling
+          <div class="avatar-grid" id="solo-avatars"></div>
+        </div>
+      </div>
+      <p class="error" id="setup-error" role="alert"></p>
+      <button class="btn btn-sun btn-wide" id="setup-go">Create game</button>
+    </div>
+  </section>
+
+  <!-- Host lobby -->
+  <section class="screen" id="s-lobby">
+    <div class="lobby">
+      <div class="lobby-head">
+        <p class="join-at">Join at <strong id="lobby-url"></strong></p>
+        <div class="pin" id="lobby-pin">000000</div>
+        <p class="lobby-meta" id="lobby-meta"></p>
+      </div>
+      <div class="lobby-tools">
+        <span id="lobby-count">0 players</span>
+        <button class="btn btn-ghost btn-small" id="lobby-lock">🔓 Lock game</button>
+        <button class="btn btn-ghost btn-small" id="lobby-react">😀 Reactions on</button>
+        <button class="btn btn-ghost btn-small" id="lobby-big">Big screen</button>
+        <button class="btn btn-ghost btn-small" id="lobby-bot">Add a bot</button>
+        <button class="btn btn-ghost btn-small" id="lobby-close">Close game</button>
+        <button class="btn btn-sun" id="lobby-start">Start game</button>
+      </div>
+      <p class="error" id="lobby-error" role="alert"></p>
+      <ul class="chips" id="lobby-players"></ul>
+      <p class="empty" id="lobby-empty">Waiting for players. Share the PIN above.</p>
+    </div>
+  </section>
+
+  <!-- Host live view -->
+  <section class="screen" id="s-host-game">
+    <div class="mode-glow" aria-hidden="true"></div>
+    <div class="watermark" id="hg-watermark" aria-hidden="true"></div>
+    <header class="topbar">
+      <span class="mode-tag" id="hg-mode"></span>
+      <span class="timer" id="hg-time">0:00</span>
+      <span class="pin-small">PIN <strong id="hg-pin"></strong></span>
+      <button class="btn btn-ghost btn-small" id="hg-lock">🔓 Lock game</button>
+      <button class="btn btn-ghost btn-small" id="hg-react">😀 Reactions on</button>
+      <button class="btn btn-ghost btn-small" id="hg-big">Big screen</button>
+      <button class="btn btn-ghost btn-small" id="hg-bot">Add a bot</button>
+      <button class="btn btn-coral btn-small" id="hg-end">End game</button>
+    </header>
+    <div class="host-body">
+      <div id="hg-clash" class="clash-bars" hidden></div>
+      <div id="hg-extra" class="mode-extra" hidden></div>
+      <div class="stage big" id="hg-stage" hidden></div>
+      <ol class="board" id="hg-board"></ol>
+      <aside class="feed-box"><h3>Activity</h3><ul class="feed" id="hg-feed"></ul></aside>
+    </div>
+    <div class="fx" id="hg-fx" aria-hidden="true"></div>
+  </section>
+
+  <!-- Player waiting -->
+  <section class="screen" id="s-wait">
+    <div class="wait">
+      <div class="wait-avatar" id="wait-avatar"></div>
+      <h2 id="wait-name"></h2>
+      <p>You’re in. Watch the host screen, the game starts soon.</p>
+      <p class="lobby-meta" id="wait-meta"></p>
+    </div>
+  </section>
+
+  <!-- Play -->
+  <section class="screen" id="s-play">
+    <div class="mode-glow" aria-hidden="true"></div>
+    <div class="watermark" id="play-watermark" aria-hidden="true"></div>
+    <header class="topbar">
+      <span class="mode-tag" id="play-mode"></span>
+      <span class="hud" id="play-hud"></span>
+      <span class="timer" id="play-time">0:00</span>
+      <button class="btn btn-ghost btn-small" id="play-end" hidden>End game</button>
+    </header>
+    <div class="time-bar" aria-hidden="true"><i id="play-timebar"></i></div>
+    <div class="play-body" id="play-body">
+      <div class="td-wrap" id="td-wrap" hidden>
+        <canvas id="td-canvas" width="640" height="400" aria-label="Tower defense map"></canvas>
+        <div class="td-shop" id="td-shop"></div>
+      </div>
+      <div class="qpanel" id="qpanel">
+        <div class="q-meta">
+          <span class="q-count" id="q-count">Question 1</span>
+          <span class="streak" id="q-streak" hidden></span>
+        </div>
+        <div class="question">
+          <button class="speak" id="q-speak" type="button" aria-label="Read the question out loud" title="Read out loud">🔊</button>
+          <img id="q-img" alt="Question picture" hidden>
+          <p id="q-text">Get ready…</p>
+        </div>
+        <div class="answers" id="q-answers"></div>
+        <form class="typed" id="q-typed" hidden>
+          <input id="q-typed-input" autocomplete="off" maxlength="80" placeholder="Type your answer" aria-label="Your answer">
+          <button class="btn btn-sun" type="submit">Submit</button>
+        </form>
+        <p class="toast" id="q-toast" aria-live="polite"></p>
+        <div class="stage" id="play-stage" hidden></div>
+      </div>
+      <aside class="side">
+        <div class="me-card" id="play-me"></div>
+        <div id="play-clash" class="clash-bars" hidden></div>
+        <div id="play-extra" class="mode-extra" hidden></div>
+        <div class="side-card react-card" id="play-react-card">
+          <p class="card-label">React</p>
+          <div class="emotes" id="play-react"></div>
+        </div>
+        <div class="side-card">
+          <p class="card-label">Leaderboard</p>
+          <ol class="board mini" id="play-board"></ol>
+        </div>
+        <div class="side-card">
+          <p class="card-label">Live feed</p>
+          <ul class="feed" id="play-feed"><li class="feed-empty">Nothing yet. Big plays show up here.</li></ul>
+        </div>
+      </aside>
+    </div>
+    <div class="fx" id="fx" aria-hidden="true"></div>
+  </section>
+
+  <!-- Results (also used for history) -->
+  <section class="screen" id="s-results">
+    <div class="panel wide">
+      <button class="back" id="res-back" data-go="history" hidden>Back to history</button>
+      <h2 id="res-title">Game over</h2>
+      <p class="lobby-meta" id="res-sub"></p>
+      <p class="banner" id="res-banner" hidden></p>
+      <div class="rewards" id="res-rewards" hidden></div>
+      <div class="podium" id="res-podium"></div>
+      <ol class="board" id="res-board"></ol>
+      <div id="res-review" hidden>
+        <h3>Questions to review</h3>
+        <p class="lobby-meta" id="res-review-meta"></p>
+        <ul class="review" id="res-review-list"></ul>
+      </div>
+      <div id="res-stats" hidden>
+        <h3>How everyone did on each question</h3>
+        <ul class="stats" id="res-stats-list"></ul>
+      </div>
+      <button class="btn btn-sun btn-wide" id="res-home" data-go="home">Back to home</button>
+    </div>
+  </section>
+
+  <!-- Sets list -->
+  <section class="screen" id="s-sets">
+    <div class="panel wide">
+      <button class="back" data-go="home">Back</button>
+      <div class="row-between">
+        <h2>Question sets</h2>
+        <button class="btn btn-sun" id="sets-new">New set</button>
+      </div>
+      <div class="tabs" role="tablist">
+        <button class="tab" role="tab" data-tab="mine" aria-selected="true">My sets</button>
+        <button class="tab" role="tab" data-tab="public" aria-selected="false">Discover</button>
+      </div>
+      <p class="hint" id="sets-guest" hidden>Log in to make your own sets. You can still play the sets in Discover.</p>
+      <div class="filters" id="sets-filters"></div>
+      <ul class="set-list" id="sets-list"></ul>
+    </div>
+  </section>
+
+  <!-- Set editor -->
+  <section class="screen" id="s-editor">
+    <div class="panel wide">
+      <button class="back" data-go="sets">Back to sets</button>
+      <h2 id="ed-heading">New set</h2>
+      <label class="field">Title <input id="ed-title" maxlength="80" placeholder="Unit 4 vocab"></label>
+      <label class="field">Description <input id="ed-desc" maxlength="200" placeholder="Optional"></label>
+      <div class="setup-row three">
+        <label class="field">Subject <select id="ed-subject"></select></label>
+        <label class="field">Grade <select id="ed-grade"></select></label>
+        <label class="field">Difficulty <select id="ed-difficulty"><option value="easy">Easy</option><option value="medium" selected>Medium</option><option value="hard">Hard</option></select></label>
+      </div>
+      <label class="check publish"><input type="checkbox" id="ed-public"> <span><strong>Publish to Discover</strong><br><small>Anyone can find, play and copy it. You can unpublish any time.</small></span></label>
+
+      <details class="tool-box" id="ai-box">
+        <summary>Generate questions with AI</summary>
+        <p class="hint">Optional. The questions land in the editor below so you can fix or delete any of them.</p>
+        <label class="field">Topic <input id="ai-topic" maxlength="200" placeholder="Photosynthesis, fractions, the solar system…"></label>
+        <label class="field">Or paste your notes <textarea id="ai-notes" rows="5" maxlength="12000" placeholder="Paste class notes and the questions will come from them"></textarea></label>
+        <div class="setup-row">
+          <label class="field">How many
+            <select id="ai-count"><option>5</option><option selected>10</option><option>15</option><option>20</option><option>30</option></select>
+          </label>
+          <label class="field">Difficulty
+            <select id="ai-diff"><option value="easy">Easy</option><option value="medium" selected>Medium</option><option value="hard">Hard</option></select>
+          </label>
+        </div>
+        <label class="field">Grade or level <input id="ai-grade" maxlength="60" placeholder="Optional, like 7th grade"></label>
+        <div class="field">Question types
+          <label class="check"><input type="checkbox" value="mc" class="ai-type" checked> Multiple choice</label>
+          <label class="check"><input type="checkbox" value="tf" class="ai-type"> True or false</label>
+          <label class="check"><input type="checkbox" value="type" class="ai-type"> Type the answer</label>
+        </div>
+        <label class="field">AI to use <select id="ai-provider"><option value="">Automatic</option><option value="anthropic">Claude (Anthropic)</option><option value="gemini">Gemini (Google)</option></select></label>
+        <p class="hint" id="ai-status"></p>
+        <p class="error" id="ai-error" role="alert"></p>
+        <button class="btn btn-mint" id="ai-go">Generate questions</button>
+      </details>
+
+      <div id="ed-questions"></div>
+      <div class="add-row">
+        <button class="btn btn-ghost" data-add="mc">Add multiple choice</button>
+        <button class="btn btn-ghost" data-add="tf">Add true or false</button>
+        <button class="btn btn-ghost" data-add="type">Add type the answer</button>
+      </div>
+
+      <details class="tool-box">
+        <summary>Paste many questions at once</summary>
+        <p class="hint">One question per line. <code>question | right answer | wrong | wrong | wrong</code> makes multiple choice. <code>question | answer</code> makes a type-the-answer question.</p>
+        <textarea id="ed-bulk" rows="6" placeholder="What is 7 x 8? | 56 | 54 | 64 | 48"></textarea>
+        <button class="btn btn-ghost btn-small" id="ed-bulk-add">Add these questions</button>
+      </details>
+      <p class="error" id="ed-error" role="alert"></p>
+      <button class="btn btn-sun btn-wide" id="ed-save">Save set</button>
+    </div>
+  </section>
+
+  <!-- Shop -->
+  <section class="screen" id="s-shop">
+    <div class="panel wide">
+      <button class="back" data-go="home">Back</button>
+      <div class="row-between">
+        <h2>Shop</h2>
+        <span class="coins" id="shop-coins"></span>
+      </div>
+      <p class="hint">Earn coins by playing while logged in. Duplicates turn back into coins.</p>
+      <div class="packs" id="shop-packs"></div>
+    </div>
+  </section>
+
+  <!-- Locker -->
+  <section class="screen" id="s-locker">
+    <div class="panel wide">
+      <button class="back" data-go="home">Back</button>
+      <h2>Forgelings</h2>
+      <div class="profile-card" id="locker-profile"></div>
+      <p class="hint">Pick the Forgeling you play as. Locked ones come from packs in the Shop.</p>
+      <div class="collection-wrap" id="locker-grid"></div>
+    </div>
+  </section>
+
+  <!-- History -->
+  <section class="screen" id="s-history">
+    <div class="panel wide">
+      <button class="back" data-go="home">Back</button>
+      <h2>Game history</h2>
+      <ul class="set-list" id="history-list"></ul>
+    </div>
+  </section>
+
+  <!-- Homework (teacher) -->
+  <section class="screen" id="s-homework">
+    <div class="panel wide">
+      <button class="back" data-go="home">Back</button>
+      <h2>Homework</h2>
+      <p class="hint">Assign a set. Students go to Join a game, type your 6-letter code, and answer every question once. You get a report for each student.</p>
+      <div class="card hw-new">
+        <h3>New assignment</h3>
+        <div class="setup-row">
+          <label class="field">Title <input id="hw-title" maxlength="80" placeholder="Fractions practice"></label>
+          <label class="field">Due <input id="hw-due" type="datetime-local"></label>
+        </div>
+        <label class="field">Search sets <input id="hw-search" type="search" placeholder="Type to filter the list below"></label>
+        <label class="field">Question set <select id="hw-set"></select></label>
+        <label class="field">Game mode <select id="hw-mode"></select></label>
+        <p class="error" id="hw-error" role="alert"></p>
+        <button class="btn btn-sun" id="hw-create">Create assignment</button>
+      </div>
+      <h3>Your assignments</h3>
+      <ul class="set-list" id="hw-list"></ul>
+    </div>
+  </section>
+
+  <!-- Homework report -->
+  <section class="screen" id="s-hw-report">
+    <div class="panel wide">
+      <button class="back" data-go="homework">Back to homework</button>
+      <div class="row-between">
+        <h2 id="hwr-title">Report</h2>
+        <button class="btn btn-ghost btn-small" id="hwr-delete">Delete assignment</button>
+      </div>
+      <div class="hw-code-card" id="hwr-code"></div>
+      <div class="stats-card card" id="hwr-summary"></div>
+      <h3>Students</h3>
+      <div class="table-wrap"><table class="hw-table" id="hwr-students"></table></div>
+      <h3>Hardest questions</h3>
+      <ul class="stats" id="hwr-questions"></ul>
+    </div>
+  </section>
+
+  <!-- Settings -->
+  <section class="screen" id="s-settings">
+    <div class="panel narrow">
+      <button class="back" data-go="home">Back</button>
+      <h2>Settings</h2>
+      <label class="check"><input type="checkbox" id="set-sound" checked> Sound effects</label>
+      <label class="check"><input type="checkbox" id="set-music" checked> Game soundtracks (each mode has its own)</label>
+      <label class="field">Volume <input type="range" id="set-volume" min="0" max="1" step="0.05"></label>
+      <label class="check"><input type="checkbox" id="set-readaloud"> Read every question out loud automatically</label>
+      <div id="set-ai">
+        <h3>Your AI key</h3>
+        <p class="hint">Optional. Use your own key from Anthropic or Google Gemini to generate questions. It’s encrypted and never shown again.</p>
+        <p class="hint" id="set-ai-status"></p>
+        <label class="field">Provider
+          <select id="set-ai-provider"><option value="anthropic">Claude (Anthropic)</option><option value="gemini">Gemini (Google AI Studio)</option></select>
+        </label>
+        <label class="field">API key <input id="set-ai-key" type="password" autocomplete="off" placeholder="Paste your key"></label>
+        <div class="add-row">
+          <button class="btn btn-ghost btn-small" id="set-ai-save">Save key</button>
+          <button class="btn btn-ghost btn-small" id="set-ai-remove">Remove key</button>
+        </div>
+        <p class="error" id="set-ai-error" role="alert"></p>
+      </div>
+      <h3>About</h3>
+      <p class="hint" id="set-about"></p>
+    </div>
+  </section>
+
+  <div class="overlay" id="overlay" hidden><div class="overlay-card" id="overlay-card"></div></div>
+</main>
+<script src="/socket.io/socket.io.js"></script>
+<script src="sound.js"></script>
+<script src="td.js"></script>
+<script src="app.js"></script>
+</body>
+</html>

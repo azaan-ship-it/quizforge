@@ -1,0 +1,52 @@
+[
+  {
+    "id": "sample-space",
+    "title": "Space Basics",
+    "description": "Planets, stars and missions.",
+    "updatedAt": 0,
+    "questions": [
+      { "q": "Which planet is known as the Red Planet?", "a": ["Mars", "Venus", "Jupiter", "Mercury"], "c": 0 },
+      { "q": "What is the largest planet in our solar system?", "a": ["Saturn", "Jupiter", "Neptune", "Earth"], "c": 1 },
+      { "q": "What star is at the center of our solar system?", "a": ["Polaris", "Sirius", "The Sun", "Betelgeuse"], "c": 2 },
+      { "q": "Which mission first landed humans on the Moon?", "a": ["Apollo 11", "Gemini 4", "Artemis I", "Apollo 13"], "c": 0 },
+      { "q": "About how long does light from the Sun take to reach Earth?", "a": ["8 seconds", "8 minutes", "8 hours", "8 days"], "c": 1 },
+      { "q": "What galaxy do we live in?", "a": ["Andromeda", "Triangulum", "Milky Way", "Whirlpool"], "c": 2 },
+      { "q": "Which planet has the most famous ring system?", "a": ["Uranus", "Mars", "Saturn", "Venus"], "c": 2 },
+      { "q": "What does ISS stand for?", "a": ["International Space Station", "Interstellar Survey Ship", "Inner Solar System", "Ion Space Shuttle"], "c": 0 },
+      { "q": "Which is the closest planet to the Sun?", "a": ["Venus", "Mercury", "Earth", "Mars"], "c": 1 },
+      { "q": "What pulls objects toward Earth?", "a": ["Magnetism", "Friction", "Gravity", "Inertia"], "c": 2 }
+    ]
+  },
+  {
+    "id": "sample-coding",
+    "title": "Coding Concepts",
+    "description": "Variables, loops and logic.",
+    "updatedAt": 0,
+    "questions": [
+      { "q": "What does a loop do?", "a": ["Repeats code", "Deletes code", "Names a variable", "Ends the program"], "c": 0 },
+      { "q": "Which value is a boolean?", "a": ["\"hello\"", "42", "true", "3.14"], "c": 2 },
+      { "q": "What symbol starts a comment in Python?", "a": ["//", "#", "<!--", "--"], "c": 1 },
+      { "q": "What is a bug?", "a": ["A fast computer", "An error in code", "A type of loop", "A file format"], "c": 1 },
+      { "q": "What does HTML stand for?", "a": ["HyperText Markup Language", "High Tech Modern Language", "Home Tool Making Language", "Hyper Transfer Main Link"], "c": 0 },
+      { "q": "In most languages, what index is the first item of a list?", "a": ["1", "-1", "0", "A"], "c": 2 },
+      { "q": "What does an if statement check?", "a": ["A condition", "A file", "A loop count", "A password"], "c": 0 },
+      { "q": "Which of these is a programming language?", "a": ["HTTP", "Lua", "JPEG", "USB"], "c": 1 }
+    ]
+  },
+  {
+    "id": "sample-capitals",
+    "title": "World Capitals",
+    "description": "Match countries to their capitals.",
+    "updatedAt": 0,
+    "questions": [
+      { "q": "What is the capital of Japan?", "a": ["Osaka", "Kyoto", "Tokyo", "Nagoya"], "c": 2 },
+      { "q": "What is the capital of Canada?", "a": ["Toronto", "Ottawa", "Vancouver", "Montreal"], "c": 1 },
+      { "q": "What is the capital of Australia?", "a": ["Sydney", "Melbourne", "Canberra", "Perth"], "c": 2 },
+      { "q": "What is the capital of Brazil?", "a": ["Brasília", "Rio de Janeiro", "São Paulo", "Salvador"], "c": 0 },
+      { "q": "What is the capital of Egypt?", "a": ["Alexandria", "Cairo", "Giza", "Luxor"], "c": 1 },
+      { "q": "What is the capital of France?", "a": ["Lyon", "Marseille", "Nice", "Paris"], "c": 3 },
+      { "q": "What is the capital of Kenya?", "a": ["Nairobi", "Mombasa", "Kampala", "Addis Ababa"], "c": 0 },
+      { "q": "What is the capital of South Korea?", "a": ["Busan", "Seoul", "Incheon", "Pyongyang"], "c": 1 }
+    ]
+  }
+]

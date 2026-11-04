@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: quizforge
+    runtime: node
+    buildCommand: npm install --omit=dev
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_VERSION
+        value: 20
+      - key: DATABASE_URL
+        sync: false   # your Neon connection string
+      - key: APP_SECRET
+        generateValue: true   # encrypts people's saved AI keys
+      - key: ANTHROPIC_API_KEY
+        sync: false   # optional shared key
+      - key: GEMINI_API_KEY
+        sync: false   # optional shared key

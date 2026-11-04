@@ -1,0 +1,22 @@
+# dependencies
+node_modules/
+
+# builds
+dist/
+installer-output/
+installer/Output/
+*.exe
+
+# local data (accounts, sets, games saved on this computer)
+userdata/
+
+# python cache from tools/
+__pycache__/
+
+# env files with secrets
+.env
+.env.*
+
+# OS junk
+.DS_Store
+Thumbs.db

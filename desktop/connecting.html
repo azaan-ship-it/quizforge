@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src 'unsafe-inline'; script-src 'unsafe-inline'">
+<title>QuizForge</title>
+<style>
+  body { margin: 0; height: 100vh; display: grid; place-items: center; background: #1a1033; color: #fff8e7;
+         font-family: 'Segoe UI Rounded', 'Segoe UI', system-ui, sans-serif; text-align: center;
+         background-image: radial-gradient(rgba(255,255,255,.06) 1.5px, transparent 1.5px); background-size: 26px 26px; }
+  h1 { font-size: 4rem; margin: 0; color: #ffc93c; transform: rotate(-3deg);
+       text-shadow: 0 4px 0 #e0a21a, 0 8px 0 #b97d0c, 0 14px 0 rgba(0,0,0,.35); }
+  .bot { font-size: 4rem; margin: 1.5rem 0 0.5rem; animation: bob 1.4s ease-in-out infinite; }
+  @keyframes bob { 50% { transform: translateY(-12px); } }
+  #status { font-size: 1.25rem; margin: 0.5rem 0; }
+  p.hint { color: #bcaee0; max-width: 32rem; margin: 0.5rem auto; line-height: 1.5; }
+  .row { display: none; gap: 0.8rem; justify-content: center; margin-top: 1.2rem; }
+  .row.show { display: flex; }
+  a { background: #ffc93c; color: #1a1033; text-decoration: none; font-weight: 700; padding: 0.7em 1.3em; border-radius: 14px; box-shadow: 0 5px 0 rgba(0,0,0,.35); }
+  a.ghost { background: #3a2766; color: #fff8e7; }
+  @media (prefers-reduced-motion: reduce) { .bot { animation: none; } }
+</style>
+</head>
+<body>
+  <div>
+    <h1>QuizForge</h1>
+    <div class="bot" aria-hidden="true">🤖</div>
+    <p id="status" role="status">Connecting to the online server…</p>
+    <p class="hint">If nobody has played for a while, the online server goes to sleep. Waking it up takes about a minute the first time, then it’s fast.</p>
+    <div class="row" id="actions">
+      <a href="quizforge://retry">Try again</a>
+      <a class="ghost" href="quizforge://offline">Play offline</a>
+    </div>
+  </div>
+<script>
+  function setStatus(text, failed) {
+    document.getElementById('status').textContent = text;
+    document.getElementById('actions').classList.toggle('show', !!failed);
+  }
+</script>
+</body>
+</html>
