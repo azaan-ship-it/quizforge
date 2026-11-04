@@ -6,7 +6,7 @@ process.env.QF_DESKTOP = '1';
 const { start } = require('../server');
 
 // Put your Render URL here once the web version is deployed.
-const ONLINE_URL = process.env.QUIZFORGE_ONLINE_URL || 'https://quizforge.onrender.com';
+const ONLINE_URL = process.env.QUIZFORGE_ONLINE_URL || 'https://playquizforge.onrender.com';
 const LOCAL_PORT = 3417;
 
 let win = null;
