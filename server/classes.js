@@ -121,4 +121,27 @@ async function overview(user) {
   return { teaching: teaching.sort((a, b) => b.created - a.created), enrolled };
 }
 
-module.exports = { create, join, leave, remove, removeStudent, detail, overview, getOwned, isClassCode };
+// Everything one student did for one class: each assignment with their best attempt
+async function studentWork(user, classId, studentId) {
+  const homework = require('./homework');
+  const cls = await getOwned(user, classId);
+  const st = cls.students.find(s => s.userId === studentId);
+  if (!st) throw Object.assign(new Error('That student isn’t in this class.'), { status: 404 });
+  const out = [];
+  for (const h of (await homeworkFor(cls)).sort((a, b) => b.created - a.created)) {
+    const subs = (await db().list('hwsub', { owner: h.id, limit: 5000 })).map(r => r.data).filter(s => s.userId === studentId);
+    const attempts = subs.sort((a, b) => b.finishedAt - a.finishedAt).map(homework.shapeAttempt);
+    const best = [...attempts].sort((a, b) => (b.complete - a.complete) || (b.pct - a.pct))[0] || null;
+    out.push({ id: h.id, title: h.title, setTitle: h.setTitle, count: h.count, mode: h.mode, due: h.due, attempts: attempts.length, best });
+  }
+  const done = out.filter(a => a.best && a.best.complete);
+  const totals = out.reduce((t, a) => { if (a.best) { t.right += a.best.correct; t.answered += a.best.answered; } return t; }, { right: 0, answered: 0 });
+  return {
+    student: { userId: st.userId, username: st.username, joinedAt: st.joinedAt },
+    className: cls.name,
+    summary: { assigned: out.length, done: done.length, average: done.length ? Math.round(done.reduce((n, a) => n + a.best.pct, 0) / done.length) : null, right: totals.right, wrong: totals.answered - totals.right, accuracy: totals.answered ? Math.round((totals.right / totals.answered) * 100) : null },
+    assignments: out,
+  };
+}
+
+module.exports = { create, join, leave, remove, removeStudent, detail, overview, getOwned, isClassCode, studentWork };

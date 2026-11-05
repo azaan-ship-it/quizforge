@@ -99,6 +99,7 @@ async function start({
     if (!hw) return res.status(404).json({ error: 'No homework with that code. Check it with your teacher.' });
     res.json(homework.publicInfo(hw));
   }));
+  app.get('/api/homework/:id/student', auth.requireUser, route(async (req, res) => res.json(await homework.studentWork(req.user, req.params.id, String(req.query.key || '')))));
   app.get('/api/homework/:id', auth.requireUser, route(async (req, res) => res.json(await homework.report(req.user, req.params.id))));
   app.delete('/api/homework/:id', auth.requireUser, route(async (req, res) => { await homework.remove(req.user, req.params.id); res.json({ ok: true }); }));
 
@@ -123,6 +124,7 @@ async function start({
   app.get('/api/classes/:id', auth.requireUser, route(async (req, res) => res.json(await classes.detail(req.user, req.params.id))));
   app.delete('/api/classes/:id', auth.requireUser, route(async (req, res) => res.json(await classes.remove(req.user, req.params.id))));
   app.post('/api/classes/:id/leave', auth.requireUser, route(async (req, res) => res.json(await classes.leave(req.user, req.params.id))));
+  app.get('/api/classes/:id/students/:userId', auth.requireUser, route(async (req, res) => res.json(await classes.studentWork(req.user, req.params.id, req.params.userId))));
   app.delete('/api/classes/:id/students/:userId', auth.requireUser, route(async (req, res) => res.json(await classes.removeStudent(req.user, req.params.id, req.params.userId))));
 
   // history

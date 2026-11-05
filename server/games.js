@@ -155,7 +155,7 @@ function publicPlayer(p, room) {
   const x = room && room.state !== 'lobby' && X(room.mode);
   return {
     id: p.id, name: p.name, avatar: p.avatar, bot: p.bot, level: p.level, score: p.score, gold: p.gold,
-    correct: p.correct, answered: p.answered, streak: p.streak, team: p.team, color: p.color,
+    correct: p.correct, answered: p.answered, streak: p.streak, bestStreak: p.bestStreak, team: p.team, color: p.color,
     out: p.out, wave: p.wave, lives: p.lives, hearts: p.hearts, shield: p.shield, kos: p.kos, online: p.online,
     ...(x && x.display ? x.display(room, p) : {}),
   };
@@ -290,7 +290,7 @@ async function saveHistory(room, final, stats, winnerTeam) {
   await dbm.db.put('games', room.id, {
     id: room.id, setId: room.set.id, setTitle: room.set.title, mode: room.mode, solo: room.solo,
     date: room.startedAt, length: Math.round((Date.now() - room.startedAt) / 1000), winnerTeam,
-    players: final.slice(0, 60).map(p => ({ name: p.name, avatar: p.avatar, bot: p.bot, score: p.score, gold: p.gold, correct: p.correct, answered: p.answered, team: p.team, wave: p.wave, kos: p.kos, out: p.out })),
+    players: final.slice(0, 60).map(p => ({ name: p.name, avatar: p.avatar, bot: p.bot, score: p.score, gold: p.gold, correct: p.correct, answered: p.answered, bestStreak: p.bestStreak, display: p.display, team: p.team, wave: p.wave, kos: p.kos, out: p.out })),
     stats,
   }, owner);
 }
@@ -342,7 +342,13 @@ function answer(room, p, payload) {
   room.qStats[idx][correct ? 'right' : 'wrong']++;
   if (room.homework) {
     p.firstTry = p.firstTry || {};
-    if (p.firstTry[idx] === undefined) p.firstTry[idx] = correct ? 1 : 0;
+    if (p.firstTry[idx] === undefined) {
+      p.firstTry[idx] = correct ? 1 : 0;
+      // remember what they actually answered so the teacher can see it
+      const given = q.type === 'type' ? String(payload.text || '').slice(0, 80) : (q.a[map[Number(payload.choice)]] ?? '(no answer)');
+      p.answerLog = p.answerLog || {};
+      p.answerLog[idx] = { given, correct: !!correct };
+    }
     if (p.answered >= room.set.questions.length) setImmediate(() => endGame(room));
   }
   if (correct) {

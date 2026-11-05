@@ -1156,7 +1156,7 @@ function renderResults({ mode, standings, winnerTeam, stats, title, sub, showSta
   const top = standings.slice(0, 3);
   const order = [1, 0, 2].filter(i => top[i]);
   $('res-podium').innerHTML = order.map(i => `<div class="step p${i + 1}"><div class="av">${top[i].avatar}</div><div class="nm">${esc(top[i].name)}</div><div class="block">${i + 1}</div></div>`).join('');
-  renderBoard($('res-board'), standings, mode);
+  renderResultsTable(standings, mode);
   $('res-stats').hidden = !showStats;
   if (showStats) {
     $('res-stats-list').innerHTML = stats
@@ -1168,6 +1168,25 @@ function renderResults({ mode, standings, winnerTeam, stats, title, sub, showSta
         return `<li class="${pct < 60 ? 'low' : ''}"><span>${mathHTML(s.q)}</span><span><div class="acc-bar"><div class="acc-fill" style="width:${pct}%"></div></div>${pct}% right (${s.right}/${s.total})</span></li>`;
       }).join('') || '<li>No answers were submitted.</li>';
   }
+}
+
+function renderResultsTable(standings, mode) {
+  const rows = standings.map((p, i) => {
+    const answered = p.answered || 0;
+    const right = p.correct || 0;
+    const wrong = Math.max(0, answered - right);
+    const acc = answered ? Math.round((right / answered) * 100) : null;
+    const me = p.id && p.id === app.playerId;
+    return `<tr class="${me ? 'me-row' : ''} ${p.out ? 'out-row' : ''}">
+      <td class="rank-cell">${['🥇', '🥈', '🥉'][i] || i + 1}</td>
+      <td><span class="tbl-av">${p.avatar || ''}</span> ${esc(p.name)}${p.bot ? ' <small class="muted">(bot)</small>' : ''}${me ? ' <span class="badge official">you</span>' : ''}</td>
+      <td class="num">${valueFor(p, mode)}</td>
+      <td class="num good">✓ ${right}</td>
+      <td class="num bad">✗ ${wrong}</td>
+      <td class="num"><span class="score ${acc === null ? '' : acc >= 80 ? 'hi' : acc >= 60 ? 'mid' : 'lo'}">${acc === null ? '–' : acc + '%'}</span></td>
+      <td class="num">${p.bestStreak ? '🔥 ' + p.bestStreak : '–'}</td></tr>`;
+  }).join('');
+  $('res-table').innerHTML = `<thead><tr><th></th><th>Player</th><th>Score</th><th>Right</th><th>Wrong</th><th>Accuracy</th><th>Best streak</th></tr></thead><tbody>${rows}</tbody>`;
 }
 
 socket.on('game:over', d => {
@@ -1757,13 +1776,14 @@ async function openHwReport(id) {
     .map(([n, l]) => `<div><strong>${n}</strong><span>${l}</span></div>`).join('');
   $('hwr-students').innerHTML = r.students.length
     ? `<thead><tr><th>Student</th><th>Score</th><th>Right</th><th>Status</th><th>Attempts</th><th>Last played</th></tr></thead><tbody>${r.students.map(s => s.notStarted ? `<tr class="not-started"><td>${esc(s.name)}</td><td>–</td><td>–</td><td>❌ Not started</td><td>0</td><td>–</td></tr>` : `<tr>
-        <td>${esc(s.name)}${s.account ? ' <span class="badge">account</span>' : ''}</td>
+        <td><button class="link student-link" data-key="${esc(s.key)}">${esc(s.name)}</button>${s.account ? ' <span class="badge">account</span>' : ''}</td>
         <td><span class="score ${s.pct >= 80 ? 'hi' : s.pct >= 60 ? 'mid' : 'lo'}">${s.pct}%</span></td>
         <td>${s.correct}/${s.total}</td>
         <td>${s.complete ? (s.late ? '<span class="late">Done, late</span>' : '✅ Done') : `⏳ ${s.answered}/${s.total} answered`}</td>
         <td>${s.attempts}</td>
         <td>${new Date(s.lastAt).toLocaleString([], { dateStyle: 'short', timeStyle: 'short' })}</td></tr>`).join('')}</tbody>`
     : '<tbody><tr><td>No one has started yet. Share the code above.</td></tr></tbody>';
+  $('hwr-students').querySelectorAll('.student-link').forEach(b => b.onclick = () => openHwStudent(a.id, b.dataset.key, () => openHwReport(a.id)));
   $('hwr-questions').innerHTML = r.questions.length ? r.questions.map(q => {
     const tot = q.right + q.wrong;
     const pct = Math.round((q.right / tot) * 100);
@@ -1891,8 +1911,11 @@ async function openClass(id) {
   $('cl-roster').innerHTML = c.roster.length ? '' : '<li>No students yet. Share the class code.</li>';
   for (const st of c.roster) {
     const li = document.createElement('li');
-    li.innerHTML = `<div class="info"><strong>${esc(st.username)}</strong><span>joined ${new Date(st.joinedAt).toLocaleDateString()}</span></div><button class="btn btn-ghost btn-small">Remove</button>`;
-    li.querySelector('button').onclick = async () => {
+    li.className = 'roster-row';
+    li.innerHTML = `<div class="info"><strong>${esc(st.username)}</strong><span>joined ${new Date(st.joinedAt).toLocaleDateString()}</span></div><button class="btn btn-sun btn-small" data-view>View work</button><button class="btn btn-ghost btn-small" data-remove>Remove</button>`;
+    li.querySelector('[data-view]').onclick = () => openClassStudent(c.id, st.userId);
+    li.querySelector('.info').onclick = () => openClassStudent(c.id, st.userId);
+    li.querySelector('[data-remove]').onclick = async () => {
       if (!confirm(`Remove ${st.username} from ${c.name}?`)) return;
       await api(`/api/classes/${encodeURIComponent(c.id)}/students/${encodeURIComponent(st.userId)}`, { method: 'DELETE' });
       openClass(c.id);
@@ -1905,6 +1928,70 @@ async function openClass(id) {
     await api('/api/classes/' + encodeURIComponent(c.id), { method: 'DELETE' });
     openClasses();
   };
+}
+
+// ---------- one student's work (teacher) ----------
+const fmtWhen = t => (t ? new Date(t).toLocaleString([], { dateStyle: 'medium', timeStyle: 'short' }) : '–');
+const tileHTML = (n, l, cls = '') => `<div class="tile ${cls}"><strong>${n}</strong><span>${l}</span></div>`;
+
+function attemptHTML(at, { open } = {}) {
+  const stats = `<div class="att-stats">
+    <span class="score ${at.pct >= 80 ? 'hi' : at.pct >= 60 ? 'mid' : 'lo'}">${at.pct}%</span>
+    <span class="good">✓ ${at.firstTryRight} right</span><span class="bad">✗ ${at.firstTryWrong} wrong</span>
+    <span>${at.answered}/${at.total} answered</span>
+    <span>${at.accuracy}% accuracy</span>
+    ${at.bestStreak ? `<span>🔥 best streak ${at.bestStreak}</span>` : ''}
+    <span class="muted">${at.complete ? (at.late ? '<b class="late">Done late</b>' : '✅ Done') : '⏳ Unfinished'} · ${fmtWhen(at.finishedAt)}</span>
+  </div>`;
+  const qs = at.details.length ? `<ol class="work-list">${at.details.map(d => `<li class="${d.correct ? 'ok' : 'miss'}">
+      <span class="mark">${d.correct ? '✓' : '✗'}</span>
+      <div><div class="wq">${d.q ? mathHTML(d.q) : 'Picture question'}${d.img ? ' <small class="muted">(picture)</small>' : ''}</div>
+      ${d.given !== null && d.given !== undefined ? `<div class="wa">Answered: <b>${mathHTML(d.given || '(blank)')}</b></div>` : ''}
+      ${!d.correct && d.right ? `<div class="wr">Correct answer: <b>${mathHTML(d.right)}</b></div>` : ''}</div>
+    </li>`).join('')}</ol>` : '<p class="hint">No questions answered yet.</p>';
+  return `${stats}<details class="work-details" ${open ? 'open' : ''}><summary>Show every question</summary>${qs}</details>`;
+}
+
+async function openClassStudent(classId, userId) {
+  show('student');
+  $('sw-title').textContent = 'Loading…';
+  $('sw-sub').textContent = '';
+  $('sw-tiles').innerHTML = '';
+  $('sw-list').innerHTML = '';
+  $('sw-back').textContent = 'Back to class';
+  $('sw-back').onclick = () => openClass(classId);
+  const r = await api(`/api/classes/${encodeURIComponent(classId)}/students/${encodeURIComponent(userId)}`);
+  const sm = r.summary;
+  $('sw-title').textContent = '👤 ' + r.student.username;
+  $('sw-sub').textContent = `${r.className} · joined ${new Date(r.student.joinedAt).toLocaleDateString()}`;
+  $('sw-tiles').innerHTML = tileHTML(`${sm.done}/${sm.assigned}`, 'homework done') + tileHTML(sm.average === null ? '–' : sm.average + '%', 'average score')
+    + tileHTML(sm.accuracy === null ? '–' : sm.accuracy + '%', 'accuracy') + tileHTML(`<span class="good">✓ ${sm.right}</span> <span class="bad">✗ ${sm.wrong}</span>`, 'right / wrong answers');
+  $('sw-list').innerHTML = r.assignments.length ? r.assignments.map(a => `<div class="card work-card">
+      <div class="row-between"><div><strong>${esc(a.title)}</strong> <span class="muted">${esc(a.setTitle)} · ${MODES[a.mode]?.name || a.mode}${a.due ? ' · due ' + fmtWhen(a.due) : ''}</span></div>
+      <span class="muted">${plural(a.attempts, 'attempt')}</span></div>
+      ${a.best ? attemptHTML(a.best) : '<p class="not-started-note">❌ Not started yet</p>'}
+    </div>`).join('') : '<p class="hint">No homework assigned to this class yet.</p>';
+}
+
+async function openHwStudent(hwId, key, back) {
+  show('student');
+  $('sw-title').textContent = 'Loading…';
+  $('sw-sub').textContent = '';
+  $('sw-tiles').innerHTML = '';
+  $('sw-list').innerHTML = '';
+  $('sw-back').textContent = 'Back to report';
+  $('sw-back').onclick = back;
+  const r = await api(`/api/homework/${encodeURIComponent(hwId)}/student?key=${encodeURIComponent(key)}`);
+  const name = r.attempts[0] ? r.attempts[0].name : key.slice(2);
+  $('sw-title').textContent = '👤 ' + name;
+  $('sw-sub').textContent = `${r.assignment.title} · ${r.assignment.setTitle}${r.assignment.className ? ' · ' + r.assignment.className : ''}`;
+  if (!r.attempts.length) { $('sw-list').innerHTML = '<p class="not-started-note">❌ Hasn’t started this homework yet.</p>'; return; }
+  const best = [...r.attempts].sort((a, b) => (b.complete - a.complete) || (b.pct - a.pct))[0];
+  $('sw-tiles').innerHTML = tileHTML(best.pct + '%', 'best score') + tileHTML(best.accuracy + '%', 'accuracy')
+    + tileHTML(`<span class="good">✓ ${best.firstTryRight}</span> <span class="bad">✗ ${best.firstTryWrong}</span>`, 'right / wrong') + tileHTML(r.attempts.length, r.attempts.length === 1 ? 'attempt' : 'attempts');
+  $('sw-list').innerHTML = r.attempts.map((at, i) => `<div class="card work-card">
+      <div class="row-between"><strong>${at === best ? '⭐ Best attempt' : 'Attempt ' + (r.attempts.length - i)}</strong><span class="muted">${fmtWhen(at.startedAt)}</span></div>
+      ${attemptHTML(at, { open: at === best })}</div>`).join('');
 }
 
 // ---------- admin ----------

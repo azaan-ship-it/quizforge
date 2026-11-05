@@ -274,7 +274,11 @@
       <p class="banner" id="res-banner" hidden></p>
       <div class="rewards" id="res-rewards" hidden></div>
       <div class="podium" id="res-podium"></div>
-      <ol class="board" id="res-board"></ol>
+      <ol class="board" id="res-board" hidden></ol>
+      <div id="res-table-wrap">
+        <h3>Everyone’s results</h3>
+        <div class="table-wrap"><table class="hw-table results-table" id="res-table"></table></div>
+      </div>
       <div id="res-review" hidden>
         <h3>Questions to review</h3>
         <p class="lobby-meta" id="res-review-meta"></p>
@@ -464,6 +468,17 @@
       <ul class="set-list" id="cl-hw"></ul>
       <h3 id="cl-roster-title">Students</h3>
       <ul class="set-list" id="cl-roster"></ul>
+    </div>
+  </section>
+
+  <!-- One student's work (teacher) -->
+  <section class="screen" id="s-student">
+    <div class="panel wide">
+      <button class="back" id="sw-back">Back</button>
+      <h2 id="sw-title">Student</h2>
+      <p class="lobby-meta" id="sw-sub"></p>
+      <div class="tiles" id="sw-tiles"></div>
+      <div id="sw-list"></div>
     </div>
   </section>
 

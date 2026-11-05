@@ -1,6 +1,6 @@
 {
   "name": "quizforge",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "QuizForge by ByteForge Studios \u2014 live quiz games with five modes, accounts, Forgelings, AI question sets and custom quizzes with pictures.",
   "main": "desktop/main.js",
   "author": "ByteForge Studios",

@@ -818,3 +818,37 @@ sup { font-size: 0.65em; line-height: 0; }
 .preview-list { text-align: left; max-height: 55vh; overflow: auto; padding-left: 1.4rem; display: grid; gap: 0.6rem; }
 .preview-list img { max-width: 160px; max-height: 90px; border-radius: 8px; background: #fff; display: block; margin-bottom: 0.3rem; }
 @media (max-width: 860px) { .class-cols, .admin-cols { grid-template-columns: 1fr; } .hw-todo li { grid-template-columns: 1fr; } }
+
+/* =====================================================================
+   Results table & student work
+   ===================================================================== */
+.results-table td { white-space: nowrap; }
+.results-table .num { font-family: var(--display); font-weight: 600; }
+.results-table .rank-cell { font-family: var(--display); font-size: 1.15rem; text-align: center; width: 3rem; }
+.results-table tr.me-row td { background: color-mix(in srgb, var(--sun) 16%, var(--plum)); }
+.results-table tr.out-row td { opacity: 0.6; }
+.tbl-av { font-size: 1.3rem; vertical-align: middle; }
+.good { color: var(--mint); }
+.bad { color: var(--coral); }
+#res-table-wrap { margin-top: 1rem; }
+.student-link { font-weight: 700; color: var(--ink); text-decoration-color: var(--sun); padding: 0; }
+.roster-row .info { cursor: pointer; }
+.roster-row .info:hover strong { color: var(--sun); }
+.work-card { margin-bottom: 0.9rem; }
+.work-card strong { font-family: var(--display); font-size: 1.15rem; }
+.att-stats { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 1rem; margin: 0.6rem 0; font-weight: 700; }
+.att-stats .score { font-size: 1.6rem; }
+.work-details summary { cursor: pointer; font-weight: 700; color: var(--sky); margin: 0.3rem 0; }
+.work-list { list-style: none; padding: 0; margin: 0.6rem 0 0; display: grid; gap: 0.45rem; }
+.work-list li { display: grid; grid-template-columns: 2rem 1fr; gap: 0.6rem; background: var(--night); border-radius: 12px; padding: 0.6rem 0.8rem; border-left: 5px solid var(--mint); }
+.work-list li.miss { border-left-color: var(--coral); }
+.work-list .mark { font-family: var(--display); font-weight: 700; font-size: 1.3rem; }
+.work-list li.ok .mark { color: var(--mint); }
+.work-list li.miss .mark { color: var(--coral); }
+.work-list .wq { font-weight: 700; }
+.work-list .wa, .work-list .wr { font-size: 0.92rem; color: var(--muted); margin-top: 0.2rem; }
+.work-list .wr b { color: var(--mint); }
+.work-list li.miss .wa b { color: var(--coral); }
+.not-started-note { color: var(--coral); font-weight: 700; }
+#sw-tiles { margin: 1rem 0; }
+#sw-tiles .tile strong .good, #sw-tiles .tile strong .bad { font-size: 1.6rem; }

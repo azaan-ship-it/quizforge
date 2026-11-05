@@ -77,6 +77,7 @@ async function report(user, id) {
     byStudent.set(key, cur);
   }
   const students = [...byStudent.values()].map(st => ({
+    key: st.best.userId ? 'u:' + st.best.userId : 'n:' + st.best.name,
     name: st.name, attempts: st.attempts, lastAt: st.lastAt,
     correct: st.best.correct, answered: st.best.answered, total: st.best.total, pct: st.best.pct,
     complete: st.best.complete, late: st.best.late, mode: st.best.mode, account: !!st.best.userId,
@@ -85,7 +86,7 @@ async function report(user, id) {
   // class members who haven't started yet
   if (cls) {
     for (const s of cls.students) {
-      if (!byStudent.has('u:' + s.userId)) students.push({ name: s.username, notStarted: true, inClass: true, account: true, attempts: 0, pct: 0, correct: 0, answered: 0, total: hw.count });
+      if (!byStudent.has('u:' + s.userId)) students.push({ key: 'u:' + s.userId, name: s.username, notStarted: true, inClass: true, account: true, attempts: 0, pct: 0, correct: 0, answered: 0, total: hw.count });
     }
   }
   students.sort((a, b) => (!!a.notStarted - !!b.notStarted) || a.name.localeCompare(b.name));
@@ -116,9 +117,15 @@ async function saveSubmission(room, p) {
   const total = room.set.questions.length;
   const texts = {};
   for (const idx of Object.keys(p.firstTry || {})) texts[idx] = room.set.questions[idx].q || 'Picture question';
+  const rightOf = q => (q.type === 'type' ? q.accept : q.c.map(i => q.a[i])).join(' / ');
+  const details = Object.keys(p.firstTry || {}).map(Number).sort((a, b) => a - b).map(idx => {
+    const q = room.set.questions[idx];
+    const log = (p.answerLog || {})[idx] || {};
+    return { idx, q: q.q || 'Picture question', img: !!q.img, type: q.type, given: log.given ?? null, right: rightOf(q), correct: !!p.firstTry[idx] };
+  });
   const sub = {
     id: crypto.randomUUID(), assignmentId: hw.id, name: p.name, userId: p.userId || null, mode: room.mode,
-    correct: p.correct, answered: p.answered, total,
+    correct: p.correct, answered: p.answered, total, details, bestStreak: p.bestStreak || 0,
     pct: total ? Math.round((Object.values(p.firstTry || {}).filter(Boolean).length / total) * 100) : 0,
     complete: p.answered >= total, perQ: p.firstTry || {}, texts,
     startedAt: room.startedAt, finishedAt: Date.now(), late: !!(hw.due && Date.now() > hw.due),
@@ -127,4 +134,25 @@ async function saveSubmission(room, p) {
   return sub;
 }
 
-module.exports = { HOMEWORK_MODES, create, getByCode, publicInfo, list, report, remove, saveSubmission };
+// One student's work on one assignment, for the teacher. key is "u:<userId>" or "n:<name>".
+async function studentWork(user, hwId, key) {
+  const hw = await db().get('homework', hwId);
+  if (!hw || hw.owner !== user.id) throw Object.assign(new Error('Assignment not found.'), { status: 404 });
+  const subs = (await db().list('hwsub', { owner: hw.id, limit: 5000 })).map(r => r.data)
+    .filter(s => key.startsWith('u:') ? s.userId === key.slice(2) : (!s.userId && s.name.toLowerCase() === key.slice(2).toLowerCase()));
+  return { assignment: { id: hw.id, title: hw.title, setTitle: hw.setTitle, count: hw.count, mode: hw.mode, due: hw.due, className: hw.className }, attempts: subs.sort((a, b) => b.finishedAt - a.finishedAt).map(shapeAttempt) };
+}
+
+function shapeAttempt(s) {
+  // older attempts only kept right/wrong per question, so rebuild what we can
+  const details = s.details || Object.entries(s.perQ || {}).map(([idx, ok]) => ({ idx: Number(idx), q: (s.texts || {})[idx] || `Question ${Number(idx) + 1}`, given: null, right: null, correct: !!ok }));
+  const firstRight = details.filter(d => d.correct).length;
+  return {
+    id: s.id, name: s.name, finishedAt: s.finishedAt, startedAt: s.startedAt, complete: s.complete, late: s.late, mode: s.mode,
+    total: s.total, answered: s.answered, correct: s.correct, wrong: Math.max(0, s.answered - s.correct), pct: s.pct,
+    accuracy: s.answered ? Math.round((s.correct / s.answered) * 100) : 0, bestStreak: s.bestStreak || null,
+    firstTryRight: firstRight, firstTryWrong: details.length - firstRight, details,
+  };
+}
+
+module.exports = { HOMEWORK_MODES, create, getByCode, publicInfo, list, report, remove, saveSubmission, studentWork, shapeAttempt };
