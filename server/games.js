@@ -281,6 +281,7 @@ async function grantRewards(p, { place, playerCount, solo, won }) {
   const before = auth.levelFor(user.xp);
   const applied = progress.applyRewards(user, { ...r, won });
   await auth.saveUser(user);
+  require('./byteforge').reportGame(user, r.xp);
   return { ...applied, levelUp: auth.levelFor(user.xp) > before, user: auth.publicUser(user) };
 }
 

@@ -189,8 +189,7 @@ async function renderHome() {
   } else {
     pc.innerHTML = `<div class="pc-top"><span class="pc-av">🤖</span><div><strong>Playing as a guest</strong><span class="muted">Your progress isn’t saved</span></div></div>
       <ul class="perks"><li>🪙 Earn coins every game</li><li>⭐ Level up with XP</li><li>🎁 Daily bonus</li><li>🤖 Collect 100+ Forgelings</li></ul>
-      <div class="pc-row"><button class="btn btn-sun btn-small" id="pc-signup">Create account</button><button class="btn btn-ghost btn-small" id="pc-login">Log in</button></div>`;
-    $('pc-signup').onclick = () => openAuth('register');
+      <div class="pc-row"><button class="btn btn-sun btn-small" id="pc-login">Sign in with ByteForge</button></div>`;
     $('pc-login').onclick = () => openAuth('login');
   }
   // forgeling parade
@@ -251,7 +250,7 @@ document.addEventListener('click', e => {
   const to = go.dataset.go;
   if (to === 'home') { leaveGame(); renderAccountBar(); }
   const needsUser = { shop: 'the Shop', locker: 'your Forgelings', history: 'your game history', homework: 'assign homework', classes: 'use Classes' };
-  if (needsUser[to] && !app.user) return openAuth('login', `Log in to see ${needsUser[to]}.`);
+  if (needsUser[to] && !app.user) return openAuth('login', `Sign in to see ${needsUser[to]}.`);
   if (to === 'host' || to === 'solo') return openSetup(to === 'solo');
   if (to === 'sets') return openSets();
   if (to === 'shop') return openShop();
@@ -300,10 +299,8 @@ function renderAccountBar() {
   const bar = $('account-bar');
   if (!app.user) {
     bar.innerHTML = `<span class="guest">Playing as a guest</span>
-      <button class="btn btn-ghost btn-small" id="ab-login">Log in</button>
-      <button class="btn btn-sun btn-small" id="ab-signup">Sign up</button>`;
+      <button class="btn btn-sun btn-small" id="ab-login">Sign in</button>`;
     $('ab-login').onclick = () => openAuth('login');
-    $('ab-signup').onclick = () => openAuth('register');
     return;
   }
   const u = app.user;
@@ -318,43 +315,73 @@ function renderAccountBar() {
   };
 }
 
-let authMode = 'login';
+// Sign in with ByteForge Account. Web: redirect there and back to /auth/callback.
+// Desktop app: the system browser (window.byteforgeDesktop, from the app's preload).
 let afterAuth = null;
-function openAuth(mode, why) {
-  authMode = mode;
-  const reg = mode === 'register';
-  $('auth-title').textContent = reg ? 'Create an account' : 'Log in';
-  $('auth-go').textContent = reg ? 'Create account' : 'Log in';
-  $('auth-switch-text').textContent = reg ? 'Already have an account?' : 'New here?';
-  $('auth-switch').textContent = reg ? 'Log in' : 'Create an account';
-  $('auth-pass').autocomplete = reg ? 'new-password' : 'current-password';
-  const where = app.info?.desktop && location.hostname === 'localhost'
-    ? 'This account lives on this computer. Use Game › Play online for your online account.'
-    : '';
-  $('auth-where').textContent = [why, where].filter(Boolean).join(' ');
-  $('auth-error').textContent = '';
-  show('auth');
-  $('auth-user').focus();
+let bfWeb = null;
+async function byteforgeWeb() {
+  if (!bfWeb) {
+    const cfg = await api('/api/auth/config');
+    bfWeb = ByteForgeAuth.create({ issuer: cfg.issuer, clientId: cfg.clientId, redirectUri: location.origin + '/auth/callback' });
+  }
+  return bfWeb;
 }
-$('auth-switch').onclick = () => openAuth(authMode === 'login' ? 'register' : 'login');
-$('auth-go').onclick = async () => {
+async function adoptByteForge(accessToken) {
+  const res = await api('/api/auth/byteforge', { body: { access_token: accessToken } });
+  setToken(res.token);
+  setUser(res.user);
+  reconnectSocket();
+  return res;
+}
+function afterSignIn(res) {
+  SFX.play('unlock');
+  const next = afterAuth;
+  afterAuth = null;
+  if (next) next();
+  else if (app.pendingClassCode) openClasses();
+  else show('home');
+}
+async function startSignIn() {
+  $('auth-error').textContent = '';
+  bfBtn.disabled = true;
   try {
-    const res = await api('/api/auth/' + (authMode === 'register' ? 'register' : 'login'), {
-      body: { username: $('auth-user').value, password: $('auth-pass').value },
-    });
-    setToken(res.token);
-    setUser(res.user);
-    $('auth-pass').value = '';
-    reconnectSocket();
-    SFX.play('unlock');
-    const next = afterAuth;
-    afterAuth = null;
-    if (next) next();
-    else if (app.pendingClassCode) openClasses();
-    else show('home');
-  } catch (e) { $('auth-error').textContent = e.message; }
-};
-['auth-user', 'auth-pass'].forEach(id => $(id).addEventListener('keydown', e => { if (e.key === 'Enter') $('auth-go').click(); }));
+    if (window.byteforgeDesktop) {
+      $('auth-wait').hidden = false;
+      const t = await window.byteforgeDesktop.signIn();
+      afterSignIn(await adoptByteForge(t.access_token));
+    } else {
+      const back = app.pendingClassCode ? '/?class=' + app.pendingClassCode : '/';
+      await (await byteforgeWeb()).signIn({ returnTo: back });
+    }
+  } catch (e) { $('auth-error').textContent = e.message || 'Sign-in failed. Please try again.'; }
+  finally { bfBtn.disabled = false; $('auth-wait').hidden = true; }
+}
+// Coming back from ByteForge Account (web). Returns true if a sign-in just finished.
+async function finishSignIn() {
+  const q = new URLSearchParams(location.search);
+  if (!(q.has('state') && (q.has('code') || q.has('error')))) return false;
+  let back = '/';
+  try {
+    const web = await byteforgeWeb();
+    const r = await web.handleRedirect();
+    if (r) {
+      back = /^\/(\?class=[A-Za-z0-9]{6})?$/.test(r.returnTo || '') ? r.returnTo : '/';
+      await adoptByteForge(r.accessToken);
+      web.signOut().catch(() => {});
+      history.replaceState(null, '', back);
+      return true;
+    }
+  } catch (e) { history.replaceState(null, '', back); setTimeout(() => openAuth('login', 'Sign-in failed: ' + e.message), 300); return false; }
+  history.replaceState(null, '', back);
+  return false;
+}
+function openAuth(mode, why) {
+  $('auth-where').textContent = why || '';
+  $('auth-error').textContent = '';
+  $('auth-wait').hidden = true;
+  show('auth');
+}
+const bfBtn = ByteForgeAuth.button($('auth-bf'), { block: true, onClick: startSignIn });
 
 // ---------- avatars ----------
 function ownedAvatars() {
@@ -399,7 +426,7 @@ $('join-pin').addEventListener('input', async e => {
   if (/^[A-Z]{3}[0-9]{3}$/.test(v)) {
     box.hidden = false;
     box.innerHTML = `<strong>🏫 That’s a class code</strong><span>Join classes from Classes on the home screen (you’ll need an account).</span><button class="btn btn-sky btn-small" id="join-to-class">Go to Classes</button>`;
-    $('join-to-class').onclick = () => { app.pendingClassCode = v; if (!app.user) return openAuth('login', 'Log in to join a class.'); openClasses(); };
+    $('join-to-class').onclick = () => { app.pendingClassCode = v; if (!app.user) return openAuth('login', 'Sign in to join a class.'); openClasses(); };
     $('join-go').textContent = 'Join game';
     return;
   }
@@ -1223,7 +1250,7 @@ function renderReview() {
     if (r.rewards.levelUp) SFX.play('unlock');
   } else if (!app.user) {
     rw.hidden = false;
-    rw.innerHTML = '<span class="muted">Log in next time to earn coins and XP.</span>';
+    rw.innerHTML = '<span class="muted">Sign in next time to earn coins and XP.</span>';
   }
 }
 
@@ -1298,7 +1325,7 @@ function renderSetsList() {
   }
 }
 document.querySelectorAll('.tab').forEach(t => t.onclick = () => {
-  if (t.dataset.tab === 'mine' && !app.user) return openAuth('login', 'Log in to make your own sets.');
+  if (t.dataset.tab === 'mine' && !app.user) return openAuth('login', 'Sign in to make your own sets.');
   app.setsTab = t.dataset.tab;
   clearSetFilters();
   openSets();
@@ -1323,7 +1350,7 @@ function fillMetaSelects() {
 }
 
 async function openEditor(id) {
-  if (!app.user) return openAuth('login', 'Log in to make your own sets.');
+  if (!app.user) return openAuth('login', 'Sign in to make your own sets.');
   fillMetaSelects();
   renderAiStatus();
   editor.id = id;
@@ -1661,7 +1688,7 @@ async function openSettings() {
   const box = $('set-ai');
   if (!app.user) {
     box.querySelectorAll('input, select, button').forEach(x => { x.disabled = true; });
-    $('set-ai-status').textContent = 'Log in to save your own AI key.';
+    $('set-ai-status').textContent = 'Sign in to save your own AI key.';
   } else {
     box.querySelectorAll('input, select, button').forEach(x => { x.disabled = false; });
     try { app.info.ai = await api('/api/ai/status'); } catch {}
@@ -1832,7 +1859,7 @@ async function reportFlow(set) {
 
 // ---------- classes ----------
 async function openClasses() {
-  if (!app.user) return openAuth('login', 'Log in to use Classes.');
+  if (!app.user) return openAuth('login', 'Sign in to use Classes.');
   show('classes');
   $('cls-join-error').textContent = '';
   $('cls-new-error').textContent = '';
@@ -1899,7 +1926,7 @@ async function openClass(id) {
   $('cl-code').innerHTML = `<div><span class="card-label">Class code</span><div class="hw-code">${c.code}</div></div>
     <div class="hw-code-info"><span>${plural(c.students, 'student')}</span>
     <span class="muted">Students: log in, open Classes on the home screen, and type this code once.</span></div>`;
-  renderShare($('cl-share'), `${location.origin}/?class=${c.code}`, `Join my QuizForge class: ${c.name}`, `Log in to QuizForge and join with code ${c.code}`);
+  renderShare($('cl-share'), `${location.origin}/?class=${c.code}`, `Join my QuizForge class: ${c.name}`, `Sign in to QuizForge and join with code ${c.code}`);
   $('cl-hw').innerHTML = c.assignments.length ? '' : '<li>No homework yet. Assign some and everyone in the class sees it.</li>';
   for (const h of c.assignments) {
     const li = document.createElement('li');
@@ -2108,6 +2135,7 @@ async function loadAdminUsers() {
 // ---------- boot ----------
 (async () => {
   try { $('join-name').value = localStorage.getItem('qf-name') || ''; } catch {}
+  await finishSignIn().catch(() => false);
   const [info, catalog] = await Promise.all([api('/api/info').catch(() => null), api('/api/forgelings').catch(() => null), loadMe()]);
   app.info = info;
   app.catalog = catalog || { basic: ['🤖'], collectibles: [], packs: {} };
@@ -2117,7 +2145,7 @@ async function loadAdminUsers() {
   if (classCode && /^[A-Za-z]{3}[0-9]{3}$/.test(classCode)) {
     app.pendingClassCode = classCode.toUpperCase();
     history.replaceState(null, '', location.pathname);
-    if (app.user) openClasses(); else openAuth('login', 'Log in (or create an account) to join the class.');
+    if (app.user) openClasses(); else openAuth('login', 'Sign in to join the class.');
   }
   const hw = new URLSearchParams(location.search).get('hw');
   if (hw && /^[A-Za-z]{6}$/.test(hw)) {

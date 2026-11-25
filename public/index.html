@@ -80,13 +80,13 @@
   <section class="screen" id="s-auth">
     <div class="panel narrow">
       <button class="back" data-go="home">Back</button>
-      <h2 id="auth-title">Log in</h2>
+      <h2 id="auth-title">Sign in to QuizForge</h2>
       <p class="hint" id="auth-where"></p>
-      <label class="field">Username <input id="auth-user" maxlength="20" autocomplete="username"></label>
-      <label class="field">Password <input id="auth-pass" type="password" autocomplete="current-password"></label>
+      <p class="bf-note">QuizForge now uses <strong>ByteForge Account</strong>: one login for every ByteForge app. Had a QuizForge account? Sign in with your old username and password and your coins, XP, Forgelings, sets and classes come with you.</p>
+      <div id="auth-bf" class="bf-wrap"></div>
+      <p class="hint" id="auth-wait" hidden>Finish signing in in your browser, then come back here.</p>
       <p class="error" id="auth-error" role="alert"></p>
-      <button class="btn btn-sun btn-wide" id="auth-go">Log in</button>
-      <p class="switch-line"><span id="auth-switch-text">New here?</span> <button class="link" id="auth-switch">Create an account</button></p>
+      <p class="switch-line">New here? The same button creates your free account.</p>
     </div>
   </section>
 
@@ -105,7 +105,7 @@
       <div class="field">Pick a Forgeling
         <div class="avatar-grid" id="join-avatars"></div>
       </div>
-      <p class="hint" id="join-guest-hint">Playing as a guest. Log in to earn coins and XP.</p>
+      <p class="hint" id="join-guest-hint">Playing as a guest. Sign in to earn coins and XP.</p>
       <p class="error" id="join-error" role="alert"></p>
       <button class="btn btn-sun btn-wide" id="join-go">Join game</button>
     </div>
@@ -304,7 +304,7 @@
         <button class="tab" role="tab" data-tab="mine" aria-selected="true">My sets</button>
         <button class="tab" role="tab" data-tab="public" aria-selected="false">Discover</button>
       </div>
-      <p class="hint" id="sets-guest" hidden>Log in to make your own sets. You can still play the sets in Discover.</p>
+      <p class="hint" id="sets-guest" hidden>Sign in to make your own sets. You can still play the sets in Discover.</p>
       <div class="filters" id="sets-filters"></div>
       <ul class="set-list" id="sets-list"></ul>
     </div>
@@ -552,6 +552,7 @@
 <script src="/socket.io/socket.io.js"></script>
 <script src="sound.js"></script>
 <script src="td.js"></script>
+<script src="byteforge-auth.js"></script>
 <script src="app.js"></script>
 </body>
 </html>

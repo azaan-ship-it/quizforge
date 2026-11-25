@@ -1,7 +1,7 @@
 {
   "name": "quizforge",
-  "version": "1.2.0",
-  "description": "QuizForge by ByteForge Studios \u2014 live quiz games with five modes, accounts, Forgelings, AI question sets and custom quizzes with pictures.",
+  "version": "1.3.0",
+  "description": "QuizForge by ByteForge Studios — live quiz games with five modes, ByteForge Account sign-in, Forgelings, AI question sets and custom quizzes with pictures.",
   "main": "desktop/main.js",
   "author": "ByteForge Studios",
   "license": "MIT",
@@ -30,6 +30,7 @@
       "desktop/**",
       "server/**",
       "public/**",
+      "byteforge/**",
       "data/**",
       "package.json",
       "assets/**"

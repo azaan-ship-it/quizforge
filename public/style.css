@@ -852,3 +852,6 @@ sup { font-size: 0.65em; line-height: 0; }
 .not-started-note { color: var(--coral); font-weight: 700; }
 #sw-tiles { margin: 1rem 0; }
 #sw-tiles .tile strong .good, #sw-tiles .tile strong .bad { font-size: 1.6rem; }
+/* Sign in with ByteForge */
+.bf-note { background: rgba(34,229,132,.08); border: 1px solid rgba(34,229,132,.3); border-radius: 12px; padding: 10px 14px; line-height: 1.45; margin: 8px 0 16px; }
+.bf-wrap { margin: 8px 0 4px; }

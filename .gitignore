@@ -20,3 +20,8 @@ __pycache__/
 # OS junk
 .DS_Store
 Thumbs.db
+
+# ByteForge Account migration (personal data, never commit)
+backups/
+migration/
+*.env

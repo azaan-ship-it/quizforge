@@ -1,14 +1,13 @@
-// Accounts: username + password (scrypt), bearer-token sessions.
+// Accounts: ByteForge Account sign-in, bearer-token sessions.
 const crypto = require('crypto');
 const dbm = require('./db');
 
 const db = () => dbm.db;
-const hash = (pw, salt) => crypto.scryptSync(pw, salt, 64).toString('hex');
 
 function isAdmin(u) {
   if (!u) return false;
   const admins = String(process.env.ADMIN_USERS || '').split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
-  return admins.includes(String(u.username).toLowerCase());
+  return u.bfRole === 'admin' || admins.includes(String(u.username).toLowerCase());
 }
 
 function publicUser(u) {
@@ -32,30 +31,18 @@ function validUsername(name) {
   return /^[A-Za-z0-9_]{3,20}$/.test(name);
 }
 
-async function register(username, password) {
-  username = String(username || '').trim();
-  password = String(password || '');
-  if (!validUsername(username)) throw new Error('Usernames are 3 to 20 letters, numbers or underscores.');
-  if (require('./namefilter').isBadName(username)) throw new Error('Please pick a different username.');
-  if (password.length < 6) throw new Error('Passwords need at least 6 characters.');
-  if (await db().findOne('users', 'username', username)) throw new Error('That username is taken.');
-  const salt = crypto.randomBytes(16).toString('hex');
-  const user = {
-    id: crypto.randomUUID(), username, salt, passHash: hash(password, salt), createdAt: Date.now(),
-    coins: 200, xp: 0, avatar: '🤖', forgelings: {}, gamesPlayed: 0, wins: 0, lastDaily: null,
-  };
-  await db().put('users', user.id, user, user.id);
-  return createSession(user);
+// Accounts are ByteForge Accounts now ("Sign in with ByteForge"). Old clients get a clear message.
+function gone() {
+  const e = new Error('QuizForge now uses ByteForge Account. Refresh the page (or update the QuizForge app) and choose Sign in with ByteForge.');
+  e.status = 410;
+  throw e;
 }
+async function register() { gone(); }
+async function login() { gone(); }
 
-async function login(username, password) {
-  const hit = await db().findOne('users', 'username', String(username || '').trim());
-  if (!hit) throw new Error('Wrong username or password.');
-  const u = hit.data;
-  if (u.banned) throw new Error('This account has been suspended.');
-  const attempt = Buffer.from(hash(String(password || ''), u.salt), 'hex');
-  if (!crypto.timingSafeEqual(attempt, Buffer.from(u.passHash, 'hex'))) throw new Error('Wrong username or password.');
-  return createSession(u);
+async function signInWithByteForge(accessToken) {
+  const r = await require('./byteforge').signIn(accessToken);
+  return { ...(await createSession(r.user)), created: r.created, byteforge: r.byteforge };
 }
 
 async function createSession(user) {
@@ -100,4 +87,4 @@ function requireUser(req, res, next) {
   next();
 }
 
-module.exports = { register, login, logout, userFromToken, saveUser, publicUser, levelFor, middleware, requireUser, requireAdmin, isAdmin };
+module.exports = { register, login, signInWithByteForge, logout, userFromToken, saveUser, publicUser, levelFor, middleware, requireUser, requireAdmin, isAdmin };

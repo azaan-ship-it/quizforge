@@ -53,6 +53,11 @@ async function start({
   app.get('/api/health', (req, res) => res.json({ ok: true, time: Date.now() }));
 
   // accounts
+  const byteforge = require('./byteforge');
+  app.get('/api/auth/config', (req, res) => res.json({ issuer: byteforge.ISSUER, clientId: byteforge.CLIENT_ID }));
+  // Back from ByteForge Account: the page itself finishes the sign-in (its files use relative paths, so serve it at /).
+  app.get('/auth/callback', (req, res) => { const i = req.originalUrl.indexOf('?'); res.redirect('/' + (i >= 0 ? req.originalUrl.slice(i) : '')); });
+  app.post('/api/auth/byteforge', route(async (req, res) => res.json(await auth.signInWithByteForge(req.body.access_token))));
   app.post('/api/auth/register', route(async (req, res) => res.json(await auth.register(req.body.username, req.body.password))));
   app.post('/api/auth/login', route(async (req, res) => res.json(await auth.login(req.body.username, req.body.password))));
   app.post('/api/auth/logout', route(async (req, res) => { await auth.logout(req.token); res.json({ ok: true }); }));
@@ -87,6 +92,7 @@ async function start({
   app.post('/api/shop/open', auth.requireUser, route(async (req, res) => {
     const result = progress.openPack(req.user, req.body.pack);
     await auth.saveUser(req.user);
+    if (!result.duplicate) byteforge.reportForgeling(req.user, result.forgeling);
     res.json({ ...result, user: auth.publicUser(req.user) });
   }));
 

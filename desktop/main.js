@@ -1,13 +1,16 @@
 // QuizForge desktop — runs the game server locally so it works offline
 // and lets anyone on the same Wi-Fi join, or switches to the online server.
-const { app, BrowserWindow, Menu, shell, dialog } = require('electron');
+// Sign-in uses ByteForge Account in the system browser (loopback redirect to 127.0.0.1).
+const { app, BrowserWindow, Menu, shell, dialog, ipcMain } = require('electron');
 const path = require('path');
 process.env.QF_DESKTOP = '1';
 const { start } = require('../server');
+const { signInDesktop } = require('../byteforge/byteforge-auth-node');
 
 // Put your Render URL here once the web version is deployed.
 const ONLINE_URL = process.env.QUIZFORGE_ONLINE_URL || 'https://playquizforge.onrender.com';
 const LOCAL_PORT = 3417;
+const BF_ISSUER = (process.env.BYTEFORGE_ISSUER || 'https://byteforge-account.onrender.com').replace(/\/+$/, '');
 
 let win = null;
 let localUrl = null;
@@ -41,6 +44,17 @@ async function playOnline() {
   if (run === connectRun) status('Couldn’t reach the online server. Check your internet, or play offline from the Game menu.', true);
 }
 
+// "Sign in with ByteForge": only the QuizForge page (online server or this computer's server) may ask.
+ipcMain.handle('bf-sign-in', async (e) => {
+  let origin = '';
+  try { origin = new URL(e.senderFrame?.url || e.sender.getURL()).origin; } catch { /* no page */ }
+  const allowed = [new URL(ONLINE_URL).origin, localUrl && new URL(localUrl).origin].filter(Boolean);
+  if (!allowed.includes(origin)) throw new Error('Sign-in is only available on the QuizForge server.');
+  const tokens = await signInDesktop({ issuer: BF_ISSUER, clientId: 'quizforge', appName: 'QuizForge', openExternal: (url) => shell.openExternal(url) });
+  if (win && !win.isDestroyed()) { if (win.isMinimized()) win.restore(); win.focus(); }
+  return { access_token: tokens.access_token };
+});
+
 function buildMenu() {
   Menu.setApplicationMenu(Menu.buildFromTemplate([
     {
@@ -73,10 +87,10 @@ app.whenReady().then(async () => {
     width: 1280, height: 820, minWidth: 900, minHeight: 600,
     backgroundColor: '#1a1033', title: 'QuizForge', autoHideMenuBar: false,
     icon: path.join(__dirname, '..', 'assets', 'icon.png'),
-    webPreferences: { contextIsolation: true, nodeIntegration: false },
+    webPreferences: { contextIsolation: true, nodeIntegration: false, preload: path.join(__dirname, 'preload.js') },
   });
   buildMenu();
-  win.webContents.setWindowOpenHandler(({ url }) => { shell.openExternal(url); return { action: 'deny' }; });
+  win.webContents.setWindowOpenHandler(({ url }) => { if (/^https?:\/\//.test(url)) shell.openExternal(url); return { action: 'deny' }; });
   win.loadURL(localUrl);
   // the connecting screen's buttons
   win.webContents.on('will-navigate', (e, url) => {

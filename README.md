@@ -37,6 +37,8 @@ npm run dist       # Windows build into dist/win-unpacked, then compile installe
 ## Environment variables
 - `DATABASE_URL`: Neon connection string. Without it, data is saved in `userdata/db.json`.
 - `APP_SECRET`: encrypts the AI keys people save in Settings.
+- `BYTEFORGE_API_KEY`: this app's ByteForge Account server key (`npm run apps -- key quizforge` in byteforge-account). Sends XP and Forgelings to the ByteForge profile.
+- `BYTEFORGE_ISSUER`: ByteForge Account address (default `https://byteforge-account.onrender.com`). Accounts are ByteForge Accounts; ByteForge admins are QuizForge admins.
 - `ANTHROPIC_API_KEY` / `GEMINI_API_KEY`: optional shared keys for AI question sets. People can also save their own Anthropic or Gemini key in Settings.
 - `AI_MODEL`: optional, defaults to `claude-haiku-5-5`. `GEMINI_MODEL`: optional, defaults to `gemini-flash-latest` (falls back to `gemini-2.5-flash`).
 - `PGSSL=off`: only for testing against a local Postgres without SSL.
