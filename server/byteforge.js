@@ -20,6 +20,18 @@ function statCard(u) {
   return out;
 }
 
+// The usernames this person had in QuizForge before ByteForge Account (empty if ByteForge can't be reached).
+async function formerNames(accessToken) {
+  try {
+    const ctrl = new AbortController();
+    const t = setTimeout(() => ctrl.abort(), 8000);
+    const r = await fetch(`${ISSUER}/api/v1/me`, { headers: { Authorization: `Bearer ${accessToken}` }, signal: ctrl.signal });
+    clearTimeout(t);
+    const names = r.ok ? (await r.json()).app?.former_usernames : null;
+    return Array.isArray(names) ? names.filter(n => typeof n === 'string') : [];
+  } catch { return []; }
+}
+
 // Verifies a ByteForge access token and returns the QuizForge user (created on first sign-in).
 async function signIn(accessToken) {
   let claims;
@@ -28,10 +40,13 @@ async function signIn(accessToken) {
   const taken = async name => !!(await db().findOne('users', 'username', name));
   let hit = await db().findOne('users', 'bfId', claims.sub);
   let u = hit && hit.data.bfId === claims.sub ? hit.data : null;
-  // Offline / Wi-Fi mode on your own computer: a local account with the same name becomes yours.
+  // Offline / Wi-Fi mode on your own computer: your old local QuizForge account becomes yours,
+  // found by your ByteForge username or by a name you had in QuizForge before ByteForge.
   if (!u && db().kind === 'file') {
-    const local = await db().findOne('users', 'username', claims.username);
-    if (local && !local.data.bfId) { u = local.data; delete u.salt; delete u.passHash; u.bfId = claims.sub; }
+    for (const name of [claims.username, ...(await formerNames(accessToken))]) {
+      const local = await db().findOne('users', 'username', name);
+      if (local && !local.data.bfId) { u = local.data; delete u.salt; delete u.passHash; u.bfId = claims.sub; break; }
+    }
   }
   let created = false;
   if (!u) {

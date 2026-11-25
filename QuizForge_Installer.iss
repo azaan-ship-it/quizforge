@@ -1,6 +1,6 @@
 ; QuizForge installer — build "npm run dist" first, then compile this in Inno Setup.
 #define AppName "QuizForge"
-#define AppVersion "1.3.0"
+#define AppVersion "1.3.1"
 #define AppPublisher "ByteForge Studios"
 
 [Setup]

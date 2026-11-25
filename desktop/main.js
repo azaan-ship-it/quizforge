@@ -91,7 +91,9 @@ app.whenReady().then(async () => {
   });
   buildMenu();
   win.webContents.setWindowOpenHandler(({ url }) => { if (/^https?:\/\//.test(url)) shell.openExternal(url); return { action: 'deny' }; });
-  win.loadURL(localUrl);
+  // Start online so your account and level are the same as on the website.
+  // If the server can't be reached, the connecting screen offers offline play.
+  playOnline();
   // the connecting screen's buttons
   win.webContents.on('will-navigate', (e, url) => {
     if (url === 'quizforge://retry') { e.preventDefault(); playOnline(); }
